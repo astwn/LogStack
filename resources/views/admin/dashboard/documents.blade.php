@@ -1,10 +1,17 @@
 <div class="space-y-6"
      x-data="{
         files: [],
+        sharedFiles: [],
         loading: true,
+        loadingShared: true,
+        activeTab: 'my',
         showCreateModal: false,
         showDeleteModal: false,
+        showShareModal: false,
         fileToDelete: '',
+        fileToShare: '',
+        shareWith: '',
+        shareLoading: false,
         newFileName: '',
         fileType: 'docx',
         searchQuery: '',
@@ -33,42 +40,40 @@
             this.loading = true;
             fetch('/api/documents/list')
                 .then(res => res.json())
-                .then(data => {
-                    this.files = data;
-                    this.loading = false;
-                })
-                .catch(err => {
-                    console.error(err);
-                    this.loading = false;
-                    this.showToast('error', 'Gagal memuat daftar dokumen.');
-                });
+                .then(data => { this.files = data; this.loading = false; })
+                .catch(err => { console.error(err); this.loading = false; this.showToast('error', 'Gagal memuat daftar dokumen.'); });
         },
+
+        fetchSharedFiles() {
+            this.loadingShared = true;
+            fetch('/api/documents/shared')
+                .then(res => res.json())
+                .then(data => { this.sharedFiles = data; this.loadingShared = false; })
+                .catch(err => { console.error(err); this.loadingShared = false; });
+        },
+
         createDocument() {
             if(!this.newFileName) return;
             let baseName = this.newFileName.replace(/\.(docx|xlsx|pptx)$/i, '');
             let name = baseName + '.' + this.fileType;
-
             this.showCreateModal = false;
             window.open('/document/edit?file=' + encodeURIComponent(name), '_blank');
             setTimeout(() => { this.fetchFiles(); }, 2000);
             this.showToast('success', 'Dokumen ' + name + ' berhasil dibuat.');
-
             this.newFileName = '';
             this.fileType = 'docx';
         },
+
         confirmDeletePopup(fileName) {
             this.fileToDelete = fileName;
             this.showDeleteModal = true;
         },
+
         executeDelete() {
             if(!this.fileToDelete) return;
-
             fetch('/api/documents/delete', {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                 body: JSON.stringify({ file: this.fileToDelete })
             })
             .then(res => res.json())
@@ -82,13 +87,37 @@
                     this.showToast('error', 'Gagal menghapus dokumen.');
                 }
             })
-            .catch(err => {
-                console.error(err);
-                this.showToast('error', 'Terjadi kesalahan saat menghapus dokumen.');
-            });
+            .catch(err => { console.error(err); this.showToast('error', 'Terjadi kesalahan saat menghapus dokumen.'); });
+        },
+
+        openShareModal(fileName) {
+            this.fileToShare = fileName;
+            this.shareWith = '';
+            this.showShareModal = true;
+        },
+
+        executeShare() {
+            if (!this.fileToShare || !this.shareWith.trim()) return;
+            this.shareLoading = true;
+            fetch('/api/documents/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: JSON.stringify({ file: this.fileToShare, share_with: this.shareWith.trim() })
+            })
+            .then(res => res.json())
+            .then(data => {
+                this.shareLoading = false;
+                this.showShareModal = false;
+                if (data.success) {
+                    this.showToast('success', data.message);
+                } else {
+                    this.showToast('error', data.message);
+                }
+            })
+            .catch(err => { console.error(err); this.shareLoading = false; this.showToast('error', 'Terjadi kesalahan saat share dokumen.'); });
         }
      }"
-     x-init="fetchFiles(); $watch('searchQuery', () => currentPage = 1)">
+     x-init="fetchFiles(); fetchSharedFiles(); $watch('searchQuery', () => currentPage = 1)">
 
     {{-- Toast Notifikasi --}}
     <div x-show="docToast.show"
@@ -134,9 +163,9 @@
         </div>
 
         <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                <button @click="fetchFiles()" class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-gray-400 rounded-xl transition-colors shadow-sm flex-shrink-0" title="Refresh">
-                    <i class="fas fa-sync-alt text-xs" :class="loading ? 'animate-spin' : ''"></i>
-                </button>
+            <button @click="fetchFiles(); fetchSharedFiles()" class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-gray-400 rounded-xl transition-colors shadow-sm flex-shrink-0" title="Refresh">
+                <i class="fas fa-sync-alt text-xs" :class="loading ? 'animate-spin' : ''"></i>
+            </button>
 
             <div class="relative w-full sm:w-56 lg:w-64">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -154,6 +183,26 @@
         </div>
     </div>
 
+    {{-- Tab Navigation --}}
+    <div class="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+        <button @click="activeTab = 'my'"
+            :class="activeTab === 'my' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-white'"
+            class="px-4 py-2.5 text-xs font-semibold transition-colors flex items-center gap-2">
+            <i class="fas fa-file-alt"></i> Dokumen Saya
+            <span x-show="files.length > 0" x-text="files.length"
+                class="bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full" x-cloak></span>
+        </button>
+        <button @click="activeTab = 'shared'"
+            :class="activeTab === 'shared' ? 'border-b-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-white'"
+            class="px-4 py-2.5 text-xs font-semibold transition-colors flex items-center gap-2">
+            <i class="fas fa-share-alt"></i> Dibagikan ke Saya
+            <span x-show="sharedFiles.length > 0" x-text="sharedFiles.length"
+                class="bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full" x-cloak></span>
+        </button>
+    </div>
+
+    {{-- TAB: Dokumen Saya --}}
+    <div x-show="activeTab === 'my'">
     <div x-show="loading" class="flex flex-col items-center justify-center py-12 space-y-3">
         <div class="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-xs text-slate-400 font-medium">Menghubungkan ke Nextcloud Storage...</p>
@@ -197,18 +246,14 @@
                                             'bg-emerald-500/10 text-emerald-500': file.ext === 'xlsx' || file.ext === 'xls' || file.ext === 'ods' || file.ext === 'csv',
                                             'bg-orange-500/10 text-orange-500': file.ext === 'pptx' || file.ext === 'ppt' || file.ext === 'odp',
                                             'bg-rose-500/10 text-rose-500': file.ext === 'pdf',
-                                            'bg-purple-500/10 text-purple-500': ['mp4','mkv','avi','mov','webm'].includes(file.ext),
-                                            'bg-sky-500/10 text-sky-500': ['jpg','jpeg','png','gif','webp','svg'].includes(file.ext),
-                                            'bg-slate-500/10 text-slate-400 dark:text-slate-500': !['docx','doc','odt','xlsx','xls','ods','csv','pptx','ppt','odp','pdf','mp4','mkv','avi','mov','webm','jpg','jpeg','png','gif','webp','svg'].includes(file.ext),
+                                            'bg-slate-500/10 text-slate-400 dark:text-slate-500': !['docx','doc','odt','xlsx','xls','ods','csv','pptx','ppt','odp','pdf'].includes(file.ext),
                                          }">
                                         <i class="fas" :class="{
                                             'fa-file-word': file.ext === 'docx' || file.ext === 'doc' || file.ext === 'odt',
                                             'fa-file-excel': file.ext === 'xlsx' || file.ext === 'xls' || file.ext === 'ods' || file.ext === 'csv',
                                             'fa-file-powerpoint': file.ext === 'pptx' || file.ext === 'ppt' || file.ext === 'odp',
                                             'fa-file-pdf': file.ext === 'pdf',
-                                            'fa-file-video': ['mp4','mkv','avi','mov','webm'].includes(file.ext),
-                                            'fa-file-image': ['jpg','jpeg','png','gif','webp','svg'].includes(file.ext),
-                                            'fa-file-alt': !['docx','doc','odt','xlsx','xls','ods','csv','pptx','ppt','odp','pdf','mp4','mkv','avi','mov','webm','jpg','jpeg','png','gif','webp','svg'].includes(file.ext),
+                                            'fa-file-alt': !['docx','doc','odt','xlsx','xls','ods','csv','pptx','ppt','odp','pdf'].includes(file.ext),
                                         }"></i>
                                     </div>
                                     <div>
@@ -227,6 +272,10 @@
                                        class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-transparent dark:border-blue-800/30" title="Buka Dokumen">
                                         <i class="fas fa-external-link-alt"></i> Buka
                                     </a>
+                                    <button @click.prevent="openShareModal(file.name)"
+                                            class="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:hover:bg-emerald-900/40 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-transparent dark:border-emerald-800/30" title="Share Dokumen">
+                                        <i class="fas fa-share-alt"></i>
+                                    </button>
                                     <button @click.prevent="confirmDeletePopup(file.name)"
                                             class="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-transparent dark:border-red-800/30" title="Hapus Dokumen">
                                         <i class="fas fa-trash-alt"></i>
@@ -261,6 +310,77 @@
             </div>
         </div>
     </div>
+    </div>
+
+    {{-- TAB: Shared with Me --}}
+    <div x-show="activeTab === 'shared'" x-cloak>
+        <div x-show="loadingShared" class="flex flex-col items-center justify-center py-12 space-y-3">
+            <div class="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-xs text-slate-400 font-medium">Memuat dokumen yang dibagikan...</p>
+        </div>
+
+        <div x-show="!loadingShared && sharedFiles.length === 0" class="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-[#111827] border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm mt-4" x-cloak>
+            <div class="w-12 h-12 bg-slate-100 dark:bg-gray-800/60 text-slate-400 rounded-full flex items-center justify-center text-xl mb-3">
+                <i class="fas fa-share-alt"></i>
+            </div>
+            <h3 class="text-sm font-bold text-slate-700 dark:text-white">Belum ada dokumen yang dibagikan</h3>
+            <p class="text-[11px] text-slate-500 dark:text-gray-400 mt-1">Dokumen yang dibagikan ke Anda akan muncul di sini.</p>
+        </div>
+
+        <div x-show="!loadingShared && sharedFiles.length > 0" class="w-full bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 rounded-2xl mt-4 shadow-sm overflow-hidden" x-cloak>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-[#0d131f] border-b border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-gray-400 uppercase tracking-widest">
+                            <th class="px-5 py-4 font-bold">Nama File</th>
+                            <th class="px-5 py-4 font-bold">Dibagikan Oleh</th>
+                            <th class="px-5 py-4 font-bold">Waktu Share</th>
+                            <th class="px-5 py-4 font-bold text-center">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
+                        <template x-for="file in sharedFiles" :key="file.share_id">
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-lg flex items-center justify-center text-sm flex-shrink-0"
+                                             :class="{
+                                                'bg-blue-500/10 text-blue-500': file.ext === 'docx',
+                                                'bg-emerald-500/10 text-emerald-500': file.ext === 'xlsx',
+                                                'bg-orange-500/10 text-orange-500': file.ext === 'pptx',
+                                             }">
+                                            <i class="fas" :class="{
+                                                'fa-file-word': file.ext === 'docx',
+                                                'fa-file-excel': file.ext === 'xlsx',
+                                                'fa-file-powerpoint': file.ext === 'pptx',
+                                                'fa-file-alt': !['docx','xlsx','pptx'].includes(file.ext),
+                                            }"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-bold text-slate-900 dark:text-white" x-text="file.name"></h3>
+                                            <p class="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5" x-text="file.ext.toUpperCase() + ' Document'"></p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <span class="text-xs font-mono font-bold text-slate-700 dark:text-gray-300" x-text="file.shared_by"></span>
+                                </td>
+                                <td class="px-5 py-4 text-xs text-slate-500 dark:text-gray-400 whitespace-nowrap" x-text="file.updated_at"></td>
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center justify-center">
+                                        <a :href="'/document/edit?file=' + encodeURIComponent(file.name) + '&owner=' + encodeURIComponent(file.file_owner)" target="_blank"
+                                           class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 border border-transparent dark:border-blue-800/30">
+                                            <i class="fas fa-external-link-alt"></i> Buka
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <div class="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 mt-8 flex items-start gap-4 shadow-sm">
         <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -274,6 +394,50 @@
         </div>
     </div>
 
+    {{-- MODAL SHARE --}}
+    <div x-show="showShareModal"
+         class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+         x-transition x-cloak>
+        <div class="bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl relative"
+             @click.away="showShareModal = false">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fas fa-share-alt text-emerald-500"></i> Share Dokumen
+                </h3>
+                <button @click="showShareModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <i class="fas fa-file-alt text-blue-500 flex-shrink-0"></i>
+                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate" x-text="fileToShare"></span>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Username Nextcloud</label>
+                    <input type="text" x-model="shareWith" @keydown.enter="executeShare()"
+                           placeholder="contoh: dnan"
+                           class="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-colors">
+                    <p class="text-[10px] text-slate-400 mt-1.5">Masukkan username Nextcloud user yang ingin Anda beri akses.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-4 mt-4">
+                <button type="button" @click="showShareModal = false"
+                    class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-bold text-xs px-4 py-2 rounded-xl transition-colors">
+                    Batal
+                </button>
+                <button type="button" @click="executeShare()"
+                    :disabled="!shareWith.trim() || shareLoading"
+                    :class="!shareWith.trim() || shareLoading ? 'opacity-40 cursor-not-allowed bg-slate-400 text-slate-600' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/10'"
+                    class="font-bold text-xs px-5 py-2 rounded-xl transition-all flex items-center gap-2">
+                    <i class="fas" :class="shareLoading ? 'fa-spinner fa-spin' : 'fa-share-alt'"></i>
+                    <span x-text="shareLoading ? 'Memproses...' : 'Share'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- MODAL CREATE --}}
     <div x-show="showCreateModal"
          class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
          x-transition x-cloak>
@@ -308,6 +472,7 @@
         </div>
     </div>
 
+    {{-- MODAL DELETE --}}
     <div x-show="showDeleteModal"
          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
          x-transition x-cloak>

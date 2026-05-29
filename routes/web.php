@@ -52,6 +52,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/document/edit', [OnlyOfficeViewController::class, 'openDocument'])->name('document.edit');
     Route::get('/api/documents/list', [OnlyOfficeViewController::class, 'getFilesList'])->name('api.documents.list');
     Route::delete('/api/documents/delete', [OnlyOfficeViewController::class, 'deleteDocument'])->name('api.documents.delete');
+    Route::post('/api/documents/share', [DashboardController::class, 'shareDocument'])->name('api.documents.share');
+    Route::get('/api/documents/shared', [DashboardController::class, 'getSharedDocuments'])->name('api.documents.shared');
 
     // Endpoint API Nextcloud File Manager
     Route::get('/api/nextcloud/files', [DashboardController::class, 'getFiles']);

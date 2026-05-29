@@ -79,6 +79,10 @@ class OnlyOfficeViewController extends Controller
         $fileName        = $request->query('file', 'dokumen.docx');
         $currentUsername = Auth::user()->username ?? 'guest';
 
+        // Untuk shared document, owner adalah pemilik file asli
+        // Kalau tidak ada owner param, berarti dokumen milik sendiri
+        $fileOwner = $request->query('owner', $currentUsername);
+
         ActivityLogService::log('onlyoffice', 'open_document', "Membuka dokumen: " . $fileName, $currentUsername, Auth::id());
 
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -101,59 +105,72 @@ class OnlyOfficeViewController extends Controller
             return response()->json(['error' => 'Nextcloud app password belum tersedia. Silakan logout dan login ulang.'], 403);
         }
 
-        $webdavUrl = "{$docsDir}/{$fileName}";
-
-        // Auto-create folder Documents
-        $this->ensureDocumentsFolder($username, $appPassword, $docsDir);
-
-        // Auto-create blank file jika belum ada
-        $checkFile = Http::withBasicAuth($username, $appPassword)->head($webdavUrl);
-        if ($checkFile->status() == 404) {
-            $templateMap = [
-                'docx' => storage_path('app/templates/blank.docx'),
-                'xlsx' => storage_path('app/templates/blank.xlsx'),
-                'pptx' => storage_path('app/templates/blank.pptx'),
-            ];
-            $templateFile = $templateMap[$ext] ?? storage_path('app/templates/blank.docx');
-            if (file_exists($templateFile)) {
-                ActivityLogService::log('onlyoffice', 'create_document', "Membuat dokumen baru: " . $fileName, $currentUsername, Auth::id());
-                Http::withBasicAuth($username, $appPassword)
-                    ->withBody(file_get_contents($templateFile), $contentType)
-                    ->put($webdavUrl);
-            } else {
-                return response()->json(['error' => 'Template file not found: ' . $templateFile], 500);
+        // Untuk shared doc, ambil credentials owner
+        $ownerAppPassword = $appPassword;
+        if ($fileOwner !== $username) {
+            $ownerUser = \App\Models\User::where('username', $fileOwner)->first();
+            if ($ownerUser && $ownerUser->nc_app_password) {
+                $ownerAppPassword = $ownerUser->nc_app_password;
             }
         }
 
-        // Ambil last modified time file untuk generate unique key
         $ncBaseUrl   = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
-        $fileWebdav  = "{$ncBaseUrl}/remote.php/dav/files/{$username}/Documents/{$fileName}";
+        $ownerDocsDir = "{$ncBaseUrl}/remote.php/dav/files/{$fileOwner}/Documents";
+        $webdavUrl    = "{$ownerDocsDir}/{$fileName}";
+
+        // Auto-create folder Documents (hanya untuk dokumen milik sendiri)
+        if ($fileOwner === $username) {
+            $this->ensureDocumentsFolder($username, $appPassword, $ownerDocsDir);
+
+            // Auto-create blank file jika belum ada
+            $checkFile = Http::withBasicAuth($username, $appPassword)->head($webdavUrl);
+            if ($checkFile->status() == 404) {
+                $templateMap = [
+                    'docx' => storage_path('app/templates/blank.docx'),
+                    'xlsx' => storage_path('app/templates/blank.xlsx'),
+                    'pptx' => storage_path('app/templates/blank.pptx'),
+                ];
+                $templateFile = $templateMap[$ext] ?? storage_path('app/templates/blank.docx');
+                if (file_exists($templateFile)) {
+                    ActivityLogService::log('onlyoffice', 'create_document', "Membuat dokumen baru: " . $fileName, $currentUsername, Auth::id());
+                    Http::withBasicAuth($username, $appPassword)
+                        ->withBody(file_get_contents($templateFile), $contentType)
+                        ->put($webdavUrl);
+                } else {
+                    return response()->json(['error' => 'Template file not found: ' . $templateFile], 500);
+                }
+            }
+        }
+
+        // Ambil last modified time file — pakai owner credentials
         $lastModified = '';
         try {
-            $headResp = Http::withBasicAuth($username, $appPassword)
+            $headResp = Http::withBasicAuth($fileOwner, $ownerAppPassword)
                 ->withHeaders(['Depth' => '0'])
-                ->send('PROPFIND', $fileWebdav);
+                ->send('PROPFIND', $webdavUrl);
             if ($headResp->successful()) {
                 preg_match('/<d:getlastmodified>(.*?)<\/d:getlastmodified>/', $headResp->body(), $matches);
                 $lastModified = $matches[1] ?? '';
             }
         } catch (\Exception $e) {}
 
-        $fileId = md5($currentUsername . '_' . $fileName . '_' . $lastModified);
+        // Key berdasarkan owner + filename + lastModified supaya semua user yang akses file sama pakai key sama
+        $fileId = md5($fileOwner . '_' . $fileName . '_' . $lastModified);
+
         $config = [
             "document" => [
                 "fileType"    => $ext,
                 "key"         => $fileId,
                 "title"       => $fileName,
                 "url"         => config('app.url') . '/document/download-raw?file='
-                    . urlencode($fileName) . "&user=" . urlencode($currentUsername),
+                    . urlencode($fileName) . "&user=" . urlencode($fileOwner),
                 "permissions" => ["edit" => true, "download" => true],
             ],
             "documentType" => $documentType,
             "editorConfig" => [
                 "mode"        => "edit",
                 "callbackUrl" => config('app.url') . '/onlyoffice/callback?file='
-                    . urlencode($fileName) . "&user=" . urlencode($currentUsername),
+                    . urlencode($fileName) . "&user=" . urlencode($fileOwner),
                 "user"        => [
                     "id"   => "user_" . Auth::id(),
                     "name" => Auth::user()->name ?? $currentUsername,

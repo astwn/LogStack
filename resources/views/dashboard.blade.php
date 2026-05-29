@@ -84,9 +84,9 @@
                     <div class="relative group/tip">
                         <button @click="switchTab('main')" :class="currentTab === 'main' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-home w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Main Dashboard</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Overview</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Main Dashboard</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Overview</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('documents')" :class="currentTab === 'documents' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
@@ -98,30 +98,30 @@
                     <div class="relative group/tip">
                         <button @click="switchTab('nextcloud')" :class="currentTab === 'nextcloud' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-cloud w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Nextcloud Storage</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">File Manager</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Nextcloud Storage</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">File Manager</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('odoo')" :class="currentTab === 'odoo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-briefcase w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Odoo ERP System</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">ERP System</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Odoo ERP System</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">ERP System</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('sogo')" :class="currentTab === 'sogo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-envelope w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Sogo Mail</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Webmail</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Sogo Mail</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Webmail</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('profile')" :class="currentTab === 'profile' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-user w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Profile Akun</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">My Profile</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Profile Akun</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">My Profile</div>
                     </div>
                 </div>
 
@@ -141,15 +141,15 @@
                             </span>
                             <i x-show="sidebarOpen" class="fas fa-chevron-down text-[10px] transition-transform duration-200" :class="adminExpand ? 'rotate-180' : ''"></i>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Admin Dashboard</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Management</div>
                     </div>
                     <div x-show="adminExpand && sidebarOpen" x-transition class="mt-1 pl-3">
                         <div class="border-l-2 border-slate-200 dark:border-slate-700 pl-3 space-y-0.5">
-                            <button type="button" @click="switchTab('admin_status')" :class="currentTab === 'admin_status' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-tachometer-alt text-[10px] w-3"></i> Admin Status</button>
-                            <button type="button" @click="switchTab('admin_nextcloud_monitor')" :class="currentTab === 'admin_nextcloud_monitor' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-cloud text-[10px] w-3"></i> Nextcloud Monitor</button>
-                            <button type="button" @click="switchTab('admin_freeipa')" :class="currentTab === 'admin_freeipa' ? 'text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-key text-[10px] w-3"></i> FreeIPA Directory</button>
-                            <button type="button" @click="switchTab('admin_sso')" :class="currentTab === 'admin_sso' ? 'text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-shield-alt text-[10px] w-3"></i> Keycloak SSO</button>
-                            <button type="button" @click="switchTab('admin_monit')" :class="currentTab === 'admin_monit' ? 'text-orange-600 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-chart-bar text-[10px] w-3"></i> Monit Grafana</button>
+                            <button type="button" @click="switchTab('admin_status')" :class="currentTab === 'admin_status' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-tachometer-alt text-[10px] w-3"></i> Service Status</button>
+                            <button type="button" @click="switchTab('admin_nextcloud_monitor')" :class="currentTab === 'admin_nextcloud_monitor' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-cloud text-[10px] w-3"></i> Storage Monitor</button>
+                            <button type="button" @click="switchTab('admin_freeipa')" :class="currentTab === 'admin_freeipa' ? 'text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-key text-[10px] w-3"></i> User Directory</button>
+                            <button type="button" @click="switchTab('admin_sso')" :class="currentTab === 'admin_sso' ? 'text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-shield-alt text-[10px] w-3"></i> SSO Sessions</button>
+                            <button type="button" @click="switchTab('admin_monit')" :class="currentTab === 'admin_monit' ? 'text-orange-600 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-chart-bar text-[10px] w-3"></i> Resource Monitoring</button>
                             <button type="button" @click="switchTab('activity_log')" :class="currentTab === 'activity_log' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-history text-[10px] w-3"></i> Activity Log</button>
                             <button type="button" @click="switchTab('branding')" :class="currentTab === 'branding' ? 'text-pink-600 dark:text-pink-400 font-bold bg-pink-50 dark:bg-pink-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-palette text-[10px] w-3"></i> Branding</button>
                             <a href="/log-viewer" target="_blank" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 mt-1"><i class="fas fa-terminal text-[10px] w-3"></i> Open LogViewer</a>
@@ -384,17 +384,20 @@
                      x-data="{
                         metrics: [],
                         loading: true,
+                        refreshing: false,
                         lastUpdate: null,
-                        fetchMetrics() {
-                            this.loading = true;
+                        fetchMetrics(isRefresh = false) {
+                            if (isRefresh) { this.refreshing = true; }
+                            else { this.loading = true; }
                             fetch('/api/metrics')
                                 .then(r => r.json())
                                 .then(d => {
                                     this.metrics = d;
                                     this.loading = false;
+                                    this.refreshing = false;
                                     this.lastUpdate = new Date().toLocaleTimeString('id-ID');
                                 })
-                                .catch(() => { this.loading = false; });
+                                .catch(() => { this.loading = false; this.refreshing = false; });
                         },
                         getColor(val) {
                             if (val === null) return 'bg-slate-200 dark:bg-slate-700';
@@ -412,22 +415,25 @@
                         },
                         fmt(val) { return val !== null ? val.toFixed(1) + '%' : '-'; }
                      }"
-                     x-init="fetchMetrics(); setInterval(() => fetchMetrics(), 30000)">
+                     x-init="
+                        fetchMetrics();
+                        setInterval(() => { if (currentTab === 'admin_monit') fetchMetrics(true); }, 30000);
+                     ">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
                         <div>
-                            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Grafana Metrics Monitoring</h1>
+                            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Resource Monitoring</h1>
                             <p class="text-xs text-slate-500 dark:text-gray-400 font-medium">Visualisasi data performa hardware server dan throughput I/O jaringan.</p>
                         </div>
                         <div class="flex items-center gap-2 self-start sm:self-auto">
                             <span x-show="lastUpdate" class="text-[10px] text-slate-400 dark:text-gray-500">Update: <span x-text="lastUpdate"></span></span>
-                            <button type="button" @click="fetchMetrics()" class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-gray-400 rounded-lg transition-colors">
-                                <i class="fas fa-sync-alt text-xs" :class="loading ? 'animate-spin' : ''"></i>
+                            <button type="button" @click="fetchMetrics(true)" class="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-gray-400 rounded-lg transition-colors">
+                                <i class="fas fa-sync-alt text-xs" :class="refreshing ? 'animate-spin' : ''"></i>
                             </button>
                             <a href="{{ route('open.grafana') }}" target="_blank" class="bg-orange-50 dark:bg-orange-950 hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-600 dark:text-white border border-orange-200 dark:border-orange-900/40 text-xs font-bold px-4 py-2 rounded-xl transition-colors flex items-center gap-2"><i class="fas fa-external-link-alt"></i> Launch Portal</a>
                         </div>
                     </div>
 
-                    {{-- Loading --}}
+                    {{-- Loading first time only --}}
                     <div x-show="loading && metrics.length === 0" x-cloak class="flex items-center justify-center py-16">
                         <div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
