@@ -17,19 +17,22 @@ class User extends Authenticatable
         'password',
         'role',
         'last_login',
+        'nc_app_password',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'nc_app_password',
     ];
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'last_login' => 'datetime',
+            'password'          => 'hashed',
+            'last_login'        => 'datetime',
+            'nc_app_password'   => 'encrypted',
         ];
     }
 }

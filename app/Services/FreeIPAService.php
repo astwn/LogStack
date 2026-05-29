@@ -140,6 +140,60 @@ class FreeIPAService
         ]);
     }
 
+    /**
+     * Ganti password user di FreeIPA
+     */
+    public function changePassword(string $username, string $currentPassword, string $newPassword)
+    {
+        try {
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Content-Type' => 'application/x-www-form-urlencoded',
+                'Accept' => 'text/plain',
+                'Referer' => $this->baseUrl . '/ipa',
+            ])
+            ->withOptions(['verify' => false])
+            ->asForm()
+            ->post($this->baseUrl . '/ipa/session/change_password', [
+                'user'         => $username,
+                'old_password' => $currentPassword,
+                'new_password' => $newPassword,
+            ]);
+
+            if ($response->successful()) {
+                $body = $response->body();
+                if (str_contains($body, 'Password change successful') || str_contains($body, 'pwchange_success')) {
+                    return ['success' => true, 'message' => 'Password berhasil diubah.'];
+                }
+                if (str_contains($body, 'invalid') || str_contains($body, 'incorrect')) {
+                    return ['success' => false, 'message' => 'Password lama tidak sesuai.'];
+                }
+                if (str_contains($body, 'policy')) {
+                    return ['success' => false, 'message' => 'Password baru tidak memenuhi kebijakan keamanan.'];
+                }
+                return ['success' => false, 'message' => 'Gagal mengubah password. Coba lagi.'];
+            }
+            return ['success' => false, 'message' => 'Gagal terhubung ke FreeIPA Server.'];
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('FreeIPA changePassword error: ' . $e->getMessage());
+            return ['success' => false, 'message' => 'Terjadi kesalahan sistem.'];
+        }
+    }
+
+    /**
+     * Reset password user di FreeIPA oleh admin (tanpa perlu password lama)
+     * Sekaligus extend expiry 1 tahun agar tidak langsung expired
+     */
+    public function resetPassword(string $username, string $newPassword)
+    {
+        $expiry = gmdate('YmdHis', strtotime('+1 year')) . 'Z';
+
+        return $this->callRpc('user_mod', [
+            'uid'                   => $username,
+            'userpassword'          => $newPassword,
+            'krbpasswordexpiration' => $expiry,
+        ]);
+    }
+
    public function removeUserFromGroup(string $username, string $groupName)
     {
         return $this->callRpc('group_remove_member', [

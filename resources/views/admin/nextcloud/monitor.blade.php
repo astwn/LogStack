@@ -1,27 +1,35 @@
-<div class="space-y-6" x-data="{ activeUser: '', activeName: '', showQuotaModal: false }">
-    
-    {{-- Notifikasi Sukses/Gagal --}}
-    @if(session('success'))
-        <div class="p-4 mb-4 text-xs font-bold text-emerald-800 bg-emerald-100 rounded-xl dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/30">
-            ✅ {{ session('success') }}
-        </div>
-    @endif
-    @if(session('error'))
-        <div class="p-4 mb-4 text-xs font-bold text-rose-800 bg-rose-100 rounded-xl dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-900/30">
-            ❌ {{ session('error') }}
-        </div>
-    @endif
-
-    {{-- Header Monitor --}}
-    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-4">
-        <div>
-            <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">☁️ Nextcloud User Quota Center</h1>
-            <p class="text-xs text-slate-500 dark:text-gray-400 font-medium mt-1">Audit status kapasitas partisi server OS beserta kontrol manajemen alokasi kuota storage user network.</p>
-        </div>
-        <button onclick="window.location.reload();" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-bold text-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1">
-            <i class="fas fa-sync-alt"></i> Refresh Data
-        </button>
-    </div>
+<div class="space-y-6" x-data="{
+    activeUser: '',
+    activeName: '',
+    showQuotaModal: false,
+    searchQuery: '',
+    currentPage: 1,
+    itemsPerPage: 10,
+    userList: [
+        @foreach($ncUserStorageList as $u)
+        {
+            username: '{{ $u['username'] }}',
+            fullname: '{{ addslashes($u['fullname']) }}',
+            used: '{{ $u['used'] }}',
+            free: '{{ $u['free'] }}',
+            total: '{{ $u['total'] }}'
+        },
+        @endforeach
+    ],
+    get filteredList() {
+        if (!this.searchQuery) return this.userList;
+        const q = this.searchQuery.toLowerCase();
+        return this.userList.filter(u => u.username.toLowerCase().includes(q) || u.fullname.toLowerCase().includes(q));
+    },
+    get paginatedList() {
+        const start = (this.currentPage - 1) * this.itemsPerPage;
+        return this.filteredList.slice(start, start + this.itemsPerPage);
+    },
+    get totalPages() {
+        return Math.ceil(this.filteredList.length / this.itemsPerPage) || 1;
+    }
+}"
+x-init="$watch('searchQuery', () => currentPage = 1)">
 
     {{-- Widget Cards Storage Atas --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -71,10 +79,17 @@
 
     {{-- TABEL DATA USER --}}
     <div class="bg-slate-50 dark:bg-[#111827] border border-slate-100 dark:border-gray-800 rounded-2xl p-6">
-        <div class="flex items-center justify-between mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 border-b border-slate-200 dark:border-slate-800 pb-3">
             <span class="text-xs font-bold text-slate-700 dark:text-gray-400 flex items-center gap-2">
                 <i class="fas fa-users-cog text-blue-500"></i> Alokasi Manajemen Kuota Storage per Akun User
             </span>
+            <div class="relative w-full sm:w-56">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                    <i class="fas fa-search text-[10px]"></i>
+                </span>
+                <input type="text" x-model="searchQuery" placeholder="Cari user..."
+                       class="w-full bg-white dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500 transition-colors shadow-sm font-mono">
+            </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -89,37 +104,62 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50 text-slate-700 dark:text-gray-300">
-                    @forelse($ncUserStorageList as $userStore)
-                        <tr class="hover:bg-slate-100/40 dark:hover:bg-slate-800/20 transition-colors">
+                    <template x-for="u in paginatedList" :key="u.username">
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                             <td class="py-3.5 font-semibold">
-                                <p class="text-slate-900 dark:text-white font-bold">{{ $userStore['fullname'] }}</p>
-                                <span class="text-[10px] text-slate-400 font-mono font-medium">@ {{ $userStore['username'] }}</span>
+                                <p class="text-slate-900 dark:text-white font-bold" x-text="u.fullname"></p>
+                                <span class="text-[10px] text-slate-400 font-mono font-medium" x-text="'@ ' + u.username"></span>
                             </td>
-                            <td class="py-3.5 text-orange-600 dark:text-orange-400 font-bold">{{ $userStore['used'] }}</td>
-                            <td class="py-3.5 text-emerald-600 dark:text-emerald-400 font-medium">{{ $userStore['free'] }}</td>
-                            <td class="py-3.5"><span class="bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono font-bold rounded px-2 py-0.5">{{ $userStore['total'] }}</span></td>
+                            <td class="py-3.5 text-orange-600 dark:text-orange-400 font-bold" x-text="u.used"></td>
+                            <td class="py-3.5 text-emerald-600 dark:text-emerald-400 font-medium" x-text="u.free"></td>
+                            <td class="py-3.5">
+                                <span class="bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono font-bold rounded px-2 py-0.5" x-text="u.total"></span>
+                            </td>
                             <td class="py-3.5 text-center">
-                                {{-- Tombol Rubah Kuota Memicu Modal Pop-up --}}
-                                <button type="button" 
-                                        @click="activeUser = '{{ $userStore['username'] }}'; activeName = '{{ $userStore['fullname'] }}'; showQuotaModal = true"
+                                <button type="button"
+                                        @click="activeUser = u.username; activeName = u.fullname; showQuotaModal = true"
                                         class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1 mx-auto">
                                     <i class="fas fa-edit text-[10px]"></i> Rubah Kuota
                                 </button>
                             </td>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="py-8 text-center text-slate-400 dark:text-gray-500 font-medium">Belum ada data user storage Nextcloud yang berhasil disinkronisasikan.</td>
-                        </tr>
-                    @endforelse
+                    </template>
+                    <tr x-show="filteredList.length === 0" x-cloak>
+                        <td colspan="5" class="py-8 text-center text-slate-400 dark:text-gray-500 font-medium">
+                            <i class="fas fa-search text-xl mb-2 opacity-50 block"></i>
+                            Tidak ada data user yang ditemukan.
+                        </td>
+                    </tr>
                 </tbody>
             </table>
+        </div>
+
+        {{-- Pagination --}}
+        <div x-show="filteredList.length > 0" class="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] font-semibold text-slate-500 dark:text-gray-400 pt-3 border-t border-slate-200 dark:border-slate-800 mt-3" x-cloak>
+            <div>
+                Menampilkan <span x-text="Math.min((currentPage - 1) * itemsPerPage + 1, filteredList.length)" class="text-slate-900 dark:text-white font-mono"></span>
+                - <span x-text="Math.min(currentPage * itemsPerPage, filteredList.length)" class="text-slate-900 dark:text-white font-mono"></span>
+                dari <span x-text="filteredList.length" class="text-blue-600 font-mono font-bold"></span> user
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button @click="currentPage > 1 ? currentPage-- : null" :disabled="currentPage === 1"
+                        :class="currentPage === 1 ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'bg-white dark:bg-[#0b0e14] hover:border-slate-300 dark:hover:border-slate-600'"
+                        class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                </button>
+                <span class="px-3 font-mono font-bold">Page <span x-text="currentPage"></span> / <span x-text="totalPages"></span></span>
+                <button @click="currentPage < totalPages ? currentPage++ : null" :disabled="currentPage === totalPages"
+                        :class="currentPage === totalPages ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800' : 'bg-white dark:bg-[#0b0e14] hover:border-slate-300 dark:hover:border-slate-600'"
+                        class="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm transition-colors">
+                    Next <i class="fas fa-chevron-right ml-1"></i>
+                </button>
+            </div>
         </div>
     </div>
 
     {{-- 🔥 POP-UP MODAL ALPINJS (FIX DARK MODE STYLED) --}}
     <div x-show="showQuotaModal" 
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+         class="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
          x-transition
          x-cloak>
         

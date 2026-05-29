@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use App\Services\FreeIPAService;
+use App\Services\NextcloudService;
+use App\Services\BrandingService;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -30,6 +32,22 @@ class DashboardController extends Controller
             return 'ONLINE';
         }
         return 'OFFLINE';
+    }
+
+    /**
+     * Helper: Service URLs dari .env
+     */
+    private function getServiceUrls(): array
+    {
+        return [
+            'nextcloud'   => env('SERVICE_URL_NEXTCLOUD', 'https://drive.logstack.web.id'),
+            'odoo'        => env('SERVICE_URL_ODOO', 'https://erp.logstack.web.id'),
+            'sogo'        => env('SERVICE_URL_SOGO', 'https://mbox.logstack.web.id'),
+            'freeipa'     => env('SERVICE_URL_FREEIPA', 'https://ipa.logstack.web.id'),
+            'grafana'     => env('SERVICE_URL_GRAFANA', 'https://monit.logstack.web.id'),
+            'keycloak'    => env('SERVICE_URL_KEYCLOAK', 'https://sso.logstack.web.id'),
+            'mail_domain' => env('SERVICE_MAIL_DOMAIN', 'logstack.web.id'),
+        ];
     }
 
     /**
@@ -88,12 +106,12 @@ class DashboardController extends Controller
 
         // 2. LIVE HEALTH CHECK
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus('172.18.4.105', 80),
-            'odoo'      => $this->checkAppStatus('172.18.4.106', 8069),
-            'sogo'      => $this->checkAppStatus('172.18.4.107', 80),
-            'freeipa'   => $this->checkAppStatus('172.18.4.103', 443),
-            'grafana'   => $this->checkAppStatus('172.18.4.108', 3000),
-            'nginx'     => $this->checkAppStatus('172.18.4.101', 80),
+            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
+            'odoo'      => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
+            'sogo'      => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
+            'freeipa'   => $this->checkAppStatus(env('SERVICE_IP_FREEIPA', '172.18.4.103'), env('SERVICE_PORT_FREEIPA', 443)),
+            'grafana'   => $this->checkAppStatus(env('SERVICE_IP_GRAFANA', '172.18.4.108'), env('SERVICE_PORT_GRAFANA', 3000)),
+            'nginx'     => $this->checkAppStatus(env('SERVICE_IP_NGINX', '172.18.4.101'), env('SERVICE_PORT_NGINX', 80)),
         ];
 
         $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
@@ -120,7 +138,7 @@ class DashboardController extends Controller
 
         // 3. AMBIL DATA STORAGE REALTIME OS VIA SSH PORT 2227
         try {
-            $sshCommand = "ssh -i /var/www/.ssh/id_rsa -o StrictHostKeyChecking=no -p 2227 root@172.18.4.105 'df -Th / | tail -n 1' 2>&1";
+            $sshCommand = "ssh -i " . env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa') . " -o StrictHostKeyChecking=no -p " . env('NEXTCLOUD_SSH_PORT', 2227) . " " . env('NEXTCLOUD_SSH_USER', 'root') . "@" . env('SERVICE_IP_NEXTCLOUD', '172.18.4.105') . " 'df -Th / | tail -n 1' 2>&1";
             $output = shell_exec($sshCommand);
 
             if (!empty($output) && !str_contains($output, 'Permission denied') && !str_contains($output, 'Could not open')) {
@@ -234,20 +252,24 @@ class DashboardController extends Controller
                 $status = isset($userRaw['nsaccountlock']) && ($userRaw['nsaccountlock'] === true || $userRaw['nsaccountlock'] === 'TRUE') ? 'Locked' : 'Active';
 
                 $freeIpaUsers[] = [
-                    'username' => $username,
-                    'fullname' => $userRaw['cn'][0] ?? 'No Name',
-                    'email' => $userRaw['mail'][0] ?? '-',
-                    'groups' => $userRaw['memberof_group'] ?? ['ipausers'],
+                    'username'   => $username,
+                    'fullname'   => trim(($userRaw['givenname'][0] ?? '') . ' ' . ($userRaw['sn'][0] ?? '')) ?: ($userRaw['cn'][0] ?? 'No Name'),
+                    'first_name' => $userRaw['givenname'][0] ?? '',
+                    'last_name'  => $userRaw['sn'][0] ?? '',
+                    'email'      => $userRaw['mail'][0] ?? '-',
+                    'groups'     => $userRaw['memberof_group'] ?? ['ipausers'],
                     'last_login' => $lastLogin,
                     'status' => $status
                 ];
             }
         }
 
+        $serviceUrls = $this->getServiceUrls();
+
         return view('dashboard', compact(
             'diskTotalGb', 'diskUsedGb', 'diskUsagePercentage', 'ramTotal', 'ramUsed', 'ramUsagePercentage', 'cpuLoadValue',
-            'freeIpaUsers', 'appsStatus', 'nextcloudQuota', 'recentActivities', 'ncStorage', 'ncUserStorageList'
-        ));
+            'freeIpaUsers', 'appsStatus', 'nextcloudQuota', 'recentActivities', 'ncStorage', 'ncUserStorageList', 'serviceUrls'
+        ) + ['branding' => BrandingService::get()]);
     }
 
     /**
@@ -301,16 +323,154 @@ class DashboardController extends Controller
 
         // Live App Status Ringkas untuk Dashboard User Biasa
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus('172.18.4.105', 80),
-            'odoo'      => $this->checkAppStatus('172.18.4.106', 8069),
-            'sogo'      => $this->checkAppStatus('172.18.4.107', 80),
+            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
+            'odoo'      => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
+            'sogo'      => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
         ];
 
         return view('user_dashboard', [
-            'user'             => Auth::user(), 
-            'appsStatus'       => $appsStatus, 
-            'nextcloudQuota'   => $nextcloudQuota, // 🔥 Sekarang Key used_gb terisi aman sentosa!
-            'recentActivities' => []
+            'user'             => Auth::user(),
+            'appsStatus'       => $appsStatus,
+            'nextcloudQuota'   => $nextcloudQuota,
+            'recentActivities' => [],
+            'branding'         => BrandingService::get(),
+            'serviceUrls'      => $this->getServiceUrls(),
         ]);
     }
+
+    /**
+     * ==========================================
+     * CENTRALIZED STORAGE - pakai NextcloudService
+     * ==========================================
+     */
+
+    private function getNcCredentials(): array
+    {
+        $user       = Auth::user();
+        $username   = $user->username ?: explode('@', $user->email)[0];
+        $appPassword = $user->nc_app_password ?? null;
+        return compact('username', 'appPassword');
+    }
+
+    public function getFiles(Request $request)
+    {
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            return response()->json(['error' => 'Nextcloud app password belum tersedia. Silakan logout dan login ulang.'], 403);
+        }
+
+        $path = $request->query('path', '/');
+        $nextcloud = app(NextcloudService::class);
+        $files = $nextcloud->listFiles($username, $appPassword, $path);
+        return response()->json($files);
+    }
+
+    public function uploadFile(Request $request)
+    {
+        if (!$request->hasFile('file')) {
+            return response()->json(['success' => false, 'message' => 'File tidak ditemukan.']);
+        }
+
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            return response()->json(['success' => false, 'message' => 'Nextcloud app password belum tersedia. Silakan logout dan login ulang.']);
+        }
+
+        $path = $request->input('path', '/');
+        $nextcloud = app(NextcloudService::class);
+        $success = $nextcloud->uploadFile($username, $appPassword, $request->file('file'), $path);
+        return response()->json([
+            'success' => $success,
+            'message' => $success ? 'File berhasil diunggah.' : 'Gagal mengunggah file.'
+        ]);
+    }
+
+    public function deleteFile(Request $request)
+    {
+        $fileName = $request->input('file');
+        if (!$fileName) {
+            return response()->json(['success' => false, 'message' => 'Nama file tidak valid.']);
+        }
+
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            return response()->json(['success' => false, 'message' => 'Nextcloud app password belum tersedia. Silakan logout dan login ulang.']);
+        }
+
+        $path = $request->input('path', '/');
+        $nextcloud = app(NextcloudService::class);
+        $success = $nextcloud->deleteFile($username, $appPassword, $fileName, $path);
+        return response()->json([
+            'success' => $success,
+            'message' => $success ? 'File berhasil dihapus.' : 'Gagal menghapus file.'
+        ]);
+    }
+
+    public function previewFile(Request $request)
+    {
+        return $this->streamFile($request, 'inline');
+    }
+
+    public function downloadFile(Request $request)
+    {
+        return $this->streamFile($request, 'attachment');
+    }
+
+    private function streamFile(Request $request, string $disposition)
+    {
+        $fileName = $request->query('file');
+        $path     = $request->query('path', '/');
+
+        if (!$fileName) {
+            abort(400, 'Nama file tidak valid.');
+        }
+
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            abort(403, 'Nextcloud app password belum tersedia. Silakan logout dan login ulang.');
+        }
+
+        $nextcloud = app(NextcloudService::class);
+        $response  = $nextcloud->streamFile($username, $appPassword, $fileName, $path);
+
+        if (!$response || !$response->successful()) {
+            abort(404, 'File tidak ditemukan.');
+        }
+
+        // Proteksi file besar — max 100MB via stream Laravel
+        $fileSize = strlen($response->body());
+        if ($fileSize > 100 * 1024 * 1024) {
+            abort(413, 'File terlalu besar untuk di-stream (maks 100MB). Gunakan Nextcloud langsung.');
+        }
+
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'pdf'  => 'application/pdf',
+            'jpg'  => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png'  => 'image/png',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+            'svg'  => 'image/svg+xml',
+            'mp4'  => 'video/mp4',
+            'webm' => 'video/webm',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'txt'  => 'text/plain',
+            'md'   => 'text/plain',
+        ];
+        $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
+
+        return response($response->body(), 200, [
+            'Content-Type'        => $mimeType,
+            'Content-Disposition' => $disposition . '; filename="' . $fileName . '"',
+            'Content-Length'      => strlen($response->body()),
+        ]);
+    }
+
 }

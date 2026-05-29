@@ -25,3 +25,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Backup & docs
+*.bak
+/public/logstack-docs.html
+/storage/app/branding.json

@@ -24,4 +24,11 @@ return [
         'user' => env('FREEIPA_ADMIN_USER', 'admin'),
         'password' => env('FREEIPA_ADMIN_PASSWORD'),
     ],
+
+   'odoo' => [
+        'url'      => env('ODOO_URL'),
+        'db'       => env('ODOO_DB', 'odoo'),
+        'username' => env('ODOO_SVC_USER'),
+        'password' => env('ODOO_SVC_PASS'),
+    ],
 ];

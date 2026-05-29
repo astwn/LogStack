@@ -14,11 +14,18 @@ return Application::configure(basePath: dirname(__DIR__))
         // Beritahu Laravel untuk percaya pada Proxy Gateway (101)
         $middleware->trustProxies(at: '*');
 
+        // 🔥 BYPASS CSRF UNTUK CALLBACK DAN DOWNLOAD PROXY
+        $middleware->validateCsrfTokens(except: [
+            'onlyoffice/callback',
+            'document/download-raw'
+        ]);
+
         // DAFTARKAN MIDDLEWARE ROLE DI SINI (Laravel 11 Style)
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
         ]);
     })
+
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

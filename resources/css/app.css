@@ -1,11 +1,163 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+/* SINTAKS RESMI TAILWIND V4 UNTUK DARK MODE BERBASIS CLASS */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Pastikan compiler membaca seluruh file blade bawaan Laravel & custom views kita */
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../views/**/*.blade.php";
+@source "../js/**/*.js";
+
+/* Safelist untuk class Alpine.js dynamic binding yang tidak ter-detect oleh scanner */
+.sidebar-mobile-hidden { transform: translateX(-100%); }
+.sidebar-mobile-show   { transform: translateX(0); }
+
+@media (min-width: 768px) {
+    .sidebar-desktop { position: relative !important; transform: translateX(0) !important; }
+}
+
+/* Force z-index values for modals - plain CSS override */
+.z-\[100\]  { z-index: 100 !important; }
+.z-\[110\]  { z-index: 110 !important; }
+.z-\[120\]  { z-index: 120 !important; }
+.z-\[150\]  { z-index: 150 !important; }
+.z-\[9999\] { z-index: 9999 !important; }
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /* Set font default aplikasi ke Instrument Sans */
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =========================================
+   GLOBAL UTILITIES & CUSTOM COMPONENTS
+   ========================================= */
+
+@utility custom-body-transition {
+    font-family: var(--font-sans);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@utility app-icon-mini {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+@utility slogan-gradient {
+    background: linear-gradient(to right, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* =========================================
+   PRELOADER STYLES
+   ========================================= */
+
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0b0e14;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+    flex-shrink: 0;
+    flex-grow: 0;
+    order: -1;
+}
+
+/* Jika mode light aktif, ubah background preloader jadi putih */
+.light #preloader {
+    background-color: #ffffff;
+}
+
+.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.loader-ring {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(37, 99, 235, 0.1);
+    border-radius: 50%;
+    border-top-color: #2563eb;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* =========================================
+   ALPINE.JS RESET
+   ========================================= */
+
+[x-cloak] { 
+    display: none !important; 
+}
+
+/* =========================================
+   CUSTOM SCROLLBAR
+   ========================================= */
+
+/* Sidebar scrollbar */
+.sidebar-desktop::-webkit-scrollbar,
+aside::-webkit-scrollbar {
+    width: 3px;
+}
+.sidebar-desktop::-webkit-scrollbar-track,
+aside::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar-desktop::-webkit-scrollbar-thumb,
+aside::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 99px;
+}
+.sidebar-desktop::-webkit-scrollbar-thumb:hover,
+aside::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Main content scrollbar */
+main::-webkit-scrollbar {
+    width: 4px;
+}
+main::-webkit-scrollbar-track {
+    background: transparent;
+}
+main::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 99px;
+}
+main::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Table / overflow-x scrollbar */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 3px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: transparent;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 99px;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #334155;
 }
