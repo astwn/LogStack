@@ -58,7 +58,8 @@ class AdminUserController extends Controller
 
     public function destroy($username)
     {
-        if ($username === 'arif' || $username === 'admin') {
+        $protectedUsers = array_map('trim', explode(',', env('PROTECTED_USERNAMES', 'admin,arif')));
+        if (in_array($username, $protectedUsers)) {
             return redirect()->route('dashboard')->with('error_user', 'Proteksi Sistem: Akun root administrator tidak boleh dihapus!');
         }
 

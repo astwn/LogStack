@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\OnlyOfficeViewController;
 use App\Http\Controllers\OnlyOfficeCallbackController;
 use App\Http\Controllers\BrandingController;
+use App\Http\Controllers\AccessRequestController;
 use App\Services\AuthorizationCenterClient;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,6 +25,12 @@ Route::get('/login', [LoginController::class, 'redirectToProvider'])->name('logi
 Route::get('/login/callback', [LoginController::class, 'handleProviderCallback'])->name('login.callback');
 Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
 
+// 2b. Access Request (Public)
+Route::post('/access-request', [AccessRequestController::class, 'store'])->name('access-request.store');
+Route::get('/api/access-request/pending-count', [AccessRequestController::class, 'pendingCount'])
+    ->middleware(['auth', 'authz:logstack.admin-access-requests.read'])
+    ->name('access-request.pending-count');
+
 // 3. DASHBOARD UTAMA (rendering menu dikontrol oleh Authorization Center)
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('dashboard');
@@ -40,6 +47,13 @@ Route::middleware(['auth'])->group(function () {
     // Branding Routes
     Route::post('/admin/branding', [BrandingController::class, 'save'])->name('admin.branding.save');
     Route::post('/admin/branding/reset', [BrandingController::class, 'reset'])->name('admin.branding.reset');
+
+    // Access Request Routes (Admin)
+    Route::middleware('authz:logstack.admin-access-requests.read')->group(function () {
+        Route::get('/admin/access-requests', [AccessRequestController::class, 'index'])->name('admin.access-requests.index');
+        Route::post('/admin/access-requests/{id}/approve', [AccessRequestController::class, 'approve'])->name('admin.access-requests.approve');
+        Route::post('/admin/access-requests/{id}/reject', [AccessRequestController::class, 'reject'])->name('admin.access-requests.reject');
+    });
 });
 
 // 5. JALUR BERSAMA ONLYOFFICE DOCUMENT (Wajib Login)
@@ -61,6 +75,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/document/edit', [OnlyOfficeViewController::class, 'openDocument'])->name('document.edit');
     Route::get('/api/documents/list', [OnlyOfficeViewController::class, 'getFilesList'])->name('api.documents.list');
     Route::delete('/api/documents/delete', [OnlyOfficeViewController::class, 'deleteDocument'])->name('api.documents.delete');
+    Route::post('/api/documents/share', [DashboardController::class, 'shareDocument'])->name('api.documents.share');
+    Route::get('/api/documents/shared', [DashboardController::class, 'getSharedDocuments'])->name('api.documents.shared');
 
     // Endpoint API Nextcloud File Manager
     Route::get('/api/nextcloud/files', [DashboardController::class, 'getFiles']);

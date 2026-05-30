@@ -25,14 +25,14 @@
                     $currentStatus = is_array($user) ? ($user['status'] ?? 'Active') : ($user->status ?? 'Active');
                     $accountIsDisabled = ($currentStatus === 'Locked' || $currentStatus === 'locked');
                     
-                    $isProtected = in_array($uName, ['admin', 'arif']);
+                    $isProtected = in_array($uName, array_map('trim', explode(',', env('PROTECTED_USERNAMES', 'admin,arif'))));
                 @endphp
                 {
-                    username: '{{ $uName }}',
-                    fullName: '{{ addslashes(trim($fName . ' ' . $lName)) }}',
-                    firstName: '{{ $fName }}',
-                    lastName: '{{ $lName }}',
-                    email: '{{ $uEmail }}',
+                    username: {{ json_encode($uName) }},
+                    fullName: {{ json_encode(trim($fName . " " . $lName)) }},
+                    firstName: {{ json_encode($fName) }},
+                    lastName: {{ json_encode($lName) }},
+                    email: {{ json_encode($uEmail) }},
                     isAdmin: {{ $hasAdminGroup ? 'true' : 'false' }},
                     isLocked: {{ $accountIsDisabled ? 'true' : 'false' }},
                     isProtected: {{ $isProtected ? 'true' : 'false' }}
@@ -47,6 +47,11 @@
                 return user.username.toLowerCase().includes(query) ||
                        user.fullName.toLowerCase().includes(query) ||
                        user.email.toLowerCase().includes(query);
+            }).sort((a, b) => {
+                // Admin selalu di atas
+                if (a.isAdmin && !b.isAdmin) return -1;
+                if (!a.isAdmin && b.isAdmin) return 1;
+                return a.username.localeCompare(b.username);
             });
         },
 

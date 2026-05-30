@@ -568,4 +568,122 @@ class DashboardController extends Controller
         ]);
     }
 
+    /**
+     * Share dokumen ke user lain via Nextcloud OCS Share API
+     */
+    public function shareDocument(Request $request)
+    {
+        $request->validate([
+            'file'       => 'required|string',
+            'share_with' => 'required|string',
+        ]);
+
+        $fileName  = $request->input('file');
+        $shareWith = $request->input('share_with');
+
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            return response()->json(['success' => false, 'message' => 'Nextcloud app password belum tersedia.'], 403);
+        }
+
+        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+
+        try {
+            // Cek apakah sudah di-share sebelumnya
+            $existingShares = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
+                ->withHeaders(['OCS-APIRequest' => 'true'])
+                ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
+                    'path'   => "/Documents/{$fileName}",
+                    'format' => 'json',
+                ]);
+
+            if ($existingShares->successful()) {
+                $shares = $existingShares->json()['ocs']['data'] ?? [];
+                foreach ($shares as $share) {
+                    if (($share['share_with'] ?? '') === $shareWith) {
+                        return response()->json(['success' => false, 'message' => "Dokumen sudah di-share ke user {$shareWith}."]);
+                    }
+                }
+            }
+
+            // Buat share baru
+            $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
+                ->withHeaders(['OCS-APIRequest' => 'true'])
+                ->post("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
+                    'path'        => "/Documents/{$fileName}",
+                    'shareType'   => 0, // user share
+                    'shareWith'   => $shareWith,
+                    'permissions' => 17, // read + update
+                    'format'      => 'json',
+                ]);
+
+            $body = $response->json();
+            $status = $body['ocs']['meta']['statuscode'] ?? 0;
+
+            if ($response->successful() && in_array($status, [100, 200])) {
+                Log::info("Document {$fileName} shared from {$username} to {$shareWith}");
+                return response()->json(['success' => true, 'message' => "Dokumen berhasil di-share ke {$shareWith}."]);
+            }
+
+            $errorMsg = $body['ocs']['meta']['message'] ?? 'Gagal share dokumen.';
+            return response()->json(['success' => false, 'message' => $errorMsg]);
+
+        } catch (\Exception $e) {
+            Log::error("shareDocument exception: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan sistem.'], 500);
+        }
+    }
+
+    /**
+     * Ambil daftar dokumen yang di-share ke user ini
+     */
+    public function getSharedDocuments()
+    {
+        extract($this->getNcCredentials());
+
+        if (!$appPassword) {
+            return response()->json([]);
+        }
+
+        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
+                ->withHeaders(['OCS-APIRequest' => 'true'])
+                ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
+                    'shared_with_me' => 'true',
+                    'format'         => 'json',
+                ]);
+
+            if (!$response->successful()) return response()->json([]);
+
+            $shares = $response->json()['ocs']['data'] ?? [];
+            $files  = [];
+
+            foreach ($shares as $share) {
+                $name = basename($share['path'] ?? '');
+                $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+                // Hanya tampilkan dokumen Office
+                if (!in_array($ext, ['docx', 'xlsx', 'pptx'])) continue;
+
+                $files[] = [
+                    'name'       => $name,
+                    'shared_by'  => $share['displayname_owner'] ?? $share['uid_owner'] ?? '-',
+                    'updated_at' => isset($share['stime']) ? date('d M Y, H:i', $share['stime']) : '-',
+                    'ext'        => $ext,
+                    'share_id'   => $share['id'] ?? null,
+                    'file_owner' => $share['uid_owner'] ?? null,
+                ];
+            }
+
+            return response()->json($files);
+
+        } catch (\Exception $e) {
+            Log::error("getSharedDocuments exception: " . $e->getMessage());
+            return response()->json([]);
+        }
+    }
+
 }

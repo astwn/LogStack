@@ -70,9 +70,9 @@
                     <div class="relative group/tip">
                         <button @click="switchTab('main')" :class="currentTab === 'main' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-home w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Main Dashboard</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Overview</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Main Dashboard</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Overview</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('documents')" :class="currentTab === 'documents' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
@@ -84,30 +84,30 @@
                     <div class="relative group/tip">
                         <button @click="switchTab('nextcloud')" :class="currentTab === 'nextcloud' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-cloud w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Nextcloud Storage</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">File Manager</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Nextcloud Storage</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">File Manager</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('odoo')" :class="currentTab === 'odoo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-briefcase w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Odoo ERP System</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">ERP System</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Odoo ERP System</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">ERP System</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('sogo')" :class="currentTab === 'sogo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-envelope w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Sogo Mail</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Webmail</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Sogo Mail</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Webmail</div>
                     </div>
                     <div class="relative group/tip">
                         <button @click="switchTab('profile')" :class="currentTab === 'profile' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-user w-4 flex-shrink-0"></i>
-                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">Profile Akun</span>
+                            <span x-show="sidebarOpen" x-transition.opacity class="whitespace-nowrap">My Profile</span>
                         </button>
-                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Profile Akun</div>
+                        <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">My Profile</div>
                     </div>
                 </div>
             </div>

@@ -16,6 +16,10 @@
                 <i class="fas fa-sun text-sm" x-show="!isDark" x-cloak></i>
                 <i class="fas fa-moon text-sm" x-show="isDark" x-cloak></i>
             </button>
+            <button onclick="document.getElementById('requestModal').classList.remove('hidden')"
+                class="px-4 py-2.5 text-[11px] font-bold rounded-lg transition-all border uppercase tracking-wider text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer">
+                Request Access
+            </button>
             <a href="{{ route('login.sso') }}" class="px-5 py-2.5 text-white text-[11px] font-bold rounded-lg transition-all shadow-lg uppercase tracking-wider"
                style="background-color: {{ $brand['primary_color'] }}">
                 Masuk SSO
@@ -92,6 +96,129 @@
     <script>
         localStorage.removeItem('activeTab');
         localStorage.removeItem('userActiveTab');
+    </script>
+
+    {{-- MODAL REQUEST ACCESS --}}
+    <div id="requestModal" style="display:none; position:fixed; inset:0; z-index:9999; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); padding:1rem; backdrop-filter:blur(4px);">
+        <div style="background:var(--modal-bg, #111827); border:1px solid rgba(255,255,255,0.1); width:100%; max-width:440px; padding:1.5rem; border-radius:1rem; box-shadow:0 25px 60px rgba(0,0,0,0.6);" class="bg-white dark:bg-[#111827]">
+            <div id="successState" style="display:none;" class="text-center py-4">
+                <div class="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 rounded-full flex items-center justify-center text-emerald-500 text-2xl mx-auto mb-4">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white mb-2">Request Terkirim!</h3>
+                <p class="text-xs text-slate-500 dark:text-gray-400 mb-4">Permintaan akses Anda telah dikirim. Admin akan meninjau dan menghubungi Anda via email.</p>
+                <button onclick="closeReqModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition-colors">Tutup</button>
+            </div>
+            <div id="formState">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fas fa-user-plus" style="color:{{ $brand['primary_color'] }}"></i> Request Access
+                    </h3>
+                    <button onclick="closeReqModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
+                </div>
+                <div id="reqError" style="display:none;" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/30 rounded-xl text-xs text-red-600 dark:text-red-400 font-bold flex items-center gap-2">
+                    <i class="fas fa-exclamation-circle"></i><span id="reqErrorText"></span>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nama Lengkap *</label>
+                        <input type="text" id="req_name" placeholder="John Doe" class="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Username *</label>
+                        <input type="text" id="req_username" placeholder="johndoe" class="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors font-mono">
+                        <p class="text-[10px] text-slate-400 mt-1">Hanya huruf dan angka, min 3 karakter</p>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email Pribadi *</label>
+                        <input type="email" id="req_email" placeholder="john@gmail.com" class="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors">
+                        <p class="text-[10px] text-slate-400 mt-1">Credential akan dikirim ke email ini</p>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Departemen</label>
+                        <select id="req_department" class="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors">
+                            <option value="">-- Pilih Departemen --</option>
+                            <option value="IT / Technology">IT / Technology</option>
+                            <option value="Finance / Accounting">Finance / Accounting</option>
+                            <option value="Human Resources">Human Resources</option>
+                            <option value="Operations">Operations</option>
+                            <option value="Marketing / Sales">Marketing / Sales</option>
+                            <option value="Management">Management</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Alasan (opsional)</label>
+                        <textarea id="req_reason" placeholder="Jelaskan kebutuhan akses Anda..." rows="2" class="w-full bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors resize-none"></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-4 mt-4">
+                    <button onclick="closeReqModal()" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-300 font-bold text-xs px-4 py-2 rounded-xl transition-colors">Batal</button>
+                    <button id="reqSubmitBtn" onclick="submitReq()" class="text-white font-bold text-xs px-5 py-2 rounded-xl transition-all flex items-center gap-2" style="background-color:{{ $brand['primary_color'] }}">
+                        <i class="fas fa-paper-plane"></i> Kirim Request
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function closeReqModal() {
+            var modal = document.getElementById('requestModal');
+            modal.style.display = 'none';
+            document.getElementById('successState').style.display = 'none';
+            document.getElementById('formState').style.display = 'block';
+            document.getElementById('reqError').style.display = 'none';
+            ['req_name','req_username','req_email','req_reason'].forEach(function(id){ document.getElementById(id).value = ''; });
+            document.getElementById('req_department').value = '';
+        }
+        document.getElementById('requestModal').addEventListener('click', function(e){ if(e.target===this) closeReqModal(); });
+        // Open modal
+        document.querySelectorAll('[onclick*="requestModal"]').forEach(function(btn){
+            btn.onclick = function(){ 
+                var modal = document.getElementById('requestModal');
+                modal.style.display = 'flex';
+            };
+        });
+        function submitReq() {
+            var name = document.getElementById('req_name').value.trim();
+            var username = document.getElementById('req_username').value.trim();
+            var email = document.getElementById('req_email').value.trim();
+            var dept = document.getElementById('req_department').value;
+            var reason = document.getElementById('req_reason').value.trim();
+            if (!name || !username || !email) {
+                document.getElementById('reqErrorText').textContent = 'Nama, username, dan email wajib diisi.';
+                document.getElementById('reqError').style.display = 'flex';
+                return;
+            }
+            var btn = document.getElementById('reqSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+            fetch('/access-request', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content,'Accept':'application/json'},
+                body: JSON.stringify({name:name,username:username,email:email,department:dept,reason:reason})
+            })
+            .then(function(r){return r.json();})
+            .then(function(d){
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Request';
+                if (d.success) {
+                    document.getElementById('formState').style.display = 'none';
+                    document.getElementById('successState').style.display = 'block';
+                } else {
+                    document.getElementById('reqErrorText').textContent = d.message || 'Terjadi kesalahan.';
+                    document.getElementById('reqError').style.display = 'flex';
+                }
+            })
+            .catch(function(){
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Request';
+                document.getElementById('reqErrorText').textContent = 'Terjadi kesalahan. Coba lagi.';
+                document.getElementById('reqError').style.display = 'flex';
+            });
+        }
+        document.getElementById('requestModal').addEventListener('click', function(e){ if(e.target===this) closeReqModal(); });
     </script>
 
 </x-layouts.app>

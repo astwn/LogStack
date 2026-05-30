@@ -1,8 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" 
-      x-data="{ isDark: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches) }" 
-      x-init="$watch('isDark', val => localStorage.setItem('theme', val ? 'dark' : 'light'))"
-      :class="{ 'dark': isDark }">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,7 +14,6 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     
     <style>
-        /* Fallback reset Alpine */
         [x-cloak] { display: none !important; }
     </style>
 
@@ -31,9 +27,25 @@
         }
         window.addEventListener('load', hideLoader);
         setTimeout(hideLoader, 1200);
+
+        // Dark mode init sebelum Alpine load
+        (function() {
+            const isDark = localStorage.getItem('theme') === 'dark' ||
+                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })();
     </script>
 </head>
-<body class="bg-white dark:bg-[#0b0e14] text-slate-900 dark:text-white min-h-screen transition-colors duration-300 flex flex-col">
+<body x-data="{ isDark: localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches) }"
+      x-init="
+        $watch('isDark', val => {
+            localStorage.setItem('theme', val ? 'dark' : 'light');
+            if (val) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        })
+      "
+      class="bg-white dark:bg-[#0b0e14] text-slate-900 dark:text-white min-h-screen transition-colors duration-300 flex flex-col">
 
     <div id="preloader">
         <div class="loader-ring mb-4"></div>
