@@ -222,9 +222,18 @@ class LoginController extends Controller
             'client_id' => $clientId,
             'post_logout_redirect_uri' => config('app.url'),
         ];
-        if ($idTokenHint) {
+
+        if ($idTokenHint && $this->isIdTokenForClient($idTokenHint, $clientId)) {
             $params['id_token_hint'] = $idTokenHint;
+        } elseif ($idTokenHint) {
+            $claims = $this->decodeJwt($idTokenHint);
+            Log::warning('Keycloak logout id_token_hint dilewati karena client token tidak cocok.', [
+                'expected_client_id' => $clientId,
+                'token_azp' => $claims['azp'] ?? null,
+                'token_aud' => $claims['aud'] ?? null,
+            ]);
         }
+
         $keycloakLogoutUrl = $logoutUrl . '?' . http_build_query($params);
         // 2. Odoo force logout → Keycloak logout
         $odooLogoutUrl = config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id') . '/auth_oauth/force_logout?redirect=' . urlencode($keycloakLogoutUrl);
@@ -262,6 +271,20 @@ class LoginController extends Controller
         return app()->environment('local')
             || str_starts_with($appUrl, 'http://localhost')
             || str_starts_with($appUrl, 'http://127.0.0.1');
+    }
+
+    private function isIdTokenForClient(string $token, ?string $clientId): bool
+    {
+        if (!$clientId) {
+            return false;
+        }
+
+        $claims = $this->decodeJwt($token);
+        $audience = $claims['aud'] ?? [];
+        $audiences = is_array($audience) ? $audience : [$audience];
+
+        return ($claims['azp'] ?? null) === $clientId
+            || in_array($clientId, $audiences, true);
     }
 
     private function decodeJwt(string $token): array
