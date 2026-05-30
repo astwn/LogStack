@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\OnlyOfficeViewController;
 use App\Http\Controllers\OnlyOfficeCallbackController;
 use App\Http\Controllers\BrandingController;
+use App\Http\Controllers\AccessRequestController;
 use Illuminate\Support\Facades\Auth;
 
 // 1. Halaman Depan (Welcome) dengan proteksi deteksi Session dan Role
@@ -25,6 +26,10 @@ Route::get('/login', [LoginController::class, 'redirectToProvider'])->name('logi
 Route::get('/login/callback', [LoginController::class, 'handleProviderCallback'])->name('login.callback');
 Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
 
+// 2b. Access Request (Public)
+Route::post('/access-request', [AccessRequestController::class, 'store'])->name('access-request.store');
+Route::get('/api/access-request/pending-count', [AccessRequestController::class, 'pendingCount'])->middleware('auth')->name('access-request.pending-count');
+
 // 3. JALUR KHUSUS ADMIN (Hanya untuk group dash_admin)
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('dashboard');
@@ -40,6 +45,11 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Branding Routes
     Route::post('/admin/branding', [BrandingController::class, 'save'])->name('admin.branding.save');
     Route::post('/admin/branding/reset', [BrandingController::class, 'reset'])->name('admin.branding.reset');
+
+    // Access Request Routes (Admin)
+    Route::get('/admin/access-requests', [AccessRequestController::class, 'index'])->name('admin.access-requests.index');
+    Route::post('/admin/access-requests/{id}/approve', [AccessRequestController::class, 'approve'])->name('admin.access-requests.approve');
+    Route::post('/admin/access-requests/{id}/reject', [AccessRequestController::class, 'reject'])->name('admin.access-requests.reject');
 });
 
 // 4. JALUR KHUSUS USER BIASA (Untuk group ipausers biasa)

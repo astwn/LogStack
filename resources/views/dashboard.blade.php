@@ -4,6 +4,13 @@
             currentTab: localStorage.getItem('activeTab') || 'main',
             sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
             mobileOpen: false,
+            pendingRequests: 0,
+            fetchPendingRequests() {
+                fetch('/api/access-request/pending-count')
+                    .then(r => r.json())
+                    .then(d => { this.pendingRequests = d.count; })
+                    .catch(() => {});
+            },
             showAddModal: false,
             showEditModal: false,
             editUser: { username: '', first_name: '', last_name: '', email: '', group: 'dash_user' },
@@ -36,16 +43,8 @@
                 this.editConfirmPassword = '';
             }
          }"
-         @open-edit-modal.window="
-            editUser.username   = $event.detail.username;
-            editUser.first_name = $event.detail.first_name;
-            editUser.last_name  = $event.detail.last_name;
-            editUser.email      = $event.detail.email;
-            editUser.group      = $event.detail.group;
-            editPassword        = '';
-            editConfirmPassword = '';
-            showEditModal       = true;
-         ">
+         @open-edit-modal.window="editUser.username = $event.detail.username; editUser.first_name = $event.detail.first_name; editUser.last_name = $event.detail.last_name; editUser.email = $event.detail.email; editUser.group = $event.detail.group; editPassword = ''; editConfirmPassword = ''; showEditModal = true;"
+         x-init="fetchPendingRequests(); setInterval(() => fetchPendingRequests(), 60000)">
 
         {{-- MOBILE OVERLAY --}}
         <div x-show="mobileOpen"
@@ -132,7 +131,7 @@
                     <div class="relative group/tip">
                         <button type="button"
                                 @click="sidebarOpen ? toggleAdmin() : (sidebarOpen = true, localStorage.setItem('sidebarOpen', true), adminExpand = true, localStorage.setItem('adminExpand', true))"
-                                :class="['admin_status','admin_freeipa','admin_sso','admin_monit','admin_nextcloud_monitor','activity_log','branding'].includes(currentTab) ? 'bg-slate-100 dark:bg-gray-800/60 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800/60'"
+                                :class="['admin_status','admin_freeipa','admin_sso','admin_monit','admin_nextcloud_monitor','activity_log','branding','access_requests'].includes(currentTab) ? 'bg-slate-100 dark:bg-gray-800/60 text-slate-900 dark:text-white' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800/60'"
                                 class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors gap-3"
                                 :class="sidebarOpen ? 'justify-between' : 'justify-center'">
                             <span class="flex items-center" :class="sidebarOpen ? 'space-x-3' : ''">
@@ -151,6 +150,11 @@
                             <button type="button" @click="switchTab('admin_sso')" :class="currentTab === 'admin_sso' ? 'text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-shield-alt text-[10px] w-3"></i> SSO Sessions</button>
                             <button type="button" @click="switchTab('admin_monit')" :class="currentTab === 'admin_monit' ? 'text-orange-600 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-chart-bar text-[10px] w-3"></i> Resource Monitoring</button>
                             <button type="button" @click="switchTab('activity_log')" :class="currentTab === 'activity_log' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-history text-[10px] w-3"></i> Activity Log</button>
+                            <button type="button" @click="switchTab('access_requests')" :class="currentTab === 'access_requests' ? 'text-yellow-600 dark:text-yellow-400 font-bold bg-yellow-50 dark:bg-yellow-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5 relative">
+                                <i class="fas fa-bell text-[10px] w-3"></i> Access Requests
+                                <span x-show="pendingRequests > 0" x-text="pendingRequests"
+                                    class="ml-auto bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center" x-cloak></span>
+                            </button>
                             <button type="button" @click="switchTab('branding')" :class="currentTab === 'branding' ? 'text-pink-600 dark:text-pink-400 font-bold bg-pink-50 dark:bg-pink-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-palette text-[10px] w-3"></i> Branding</button>
                             <a href="/log-viewer" target="_blank" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 mt-1"><i class="fas fa-terminal text-[10px] w-3"></i> Open LogViewer</a>
                         </div>
@@ -228,6 +232,7 @@
                 </div>
                 <div x-show="currentTab === 'admin_status'" x-transition x-cloak>@include('admin.dashboard.admin_status')</div>
                 <div x-show="currentTab === 'admin_freeipa'" x-transition x-cloak>@include('admin.dashboard.admin_freeipa')</div>
+                <div x-show="currentTab === 'access_requests'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.access_requests')</div>
                 <div x-show="currentTab === 'branding'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.branding')</div>
                 <div x-show="currentTab === 'admin_sso'" x-transition x-cloak class="space-y-6"
                      x-data="{
