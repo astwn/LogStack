@@ -115,9 +115,9 @@ class LoginController extends Controller
     }
     public function logout(Request $request)
     {
-        $baseUrl  = rtrim(env('KEYCLOAK_BASE_URL'), '/');
-        $realm    = env('KEYCLOAK_REALM');
-        $clientId = env('KEYCLOAK_CLIENT_ID');
+        $baseUrl  = rtrim(config('services.keycloak.base_url'), '/');
+        $realm    = config('services.keycloak.realms');
+        $clientId = config('services.keycloak.client_id');
         $idTokenHint = $request->session()->get('id_token_hint');
 
         // LOG ACTIVITY sebelum session dihapus
@@ -128,9 +128,9 @@ class LoginController extends Controller
             // Force logout Nextcloud — hapus semua browser session token via SSH
             try {
                 $username = $user->username ?? explode('@', $user->email)[0];
-                $sshKey   = env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa');
-                $sshPort  = env('NEXTCLOUD_SSH_PORT', '2227');
-                $sshHost  = env('SERVICE_IP_NEXTCLOUD', '172.18.4.105');
+                $sshKey   = config('services.nextcloud.ssh_key', '/var/www/.ssh/id_rsa');
+                $sshPort  = config('services.nextcloud.ssh_port', '2227');
+                $sshHost  = config('services.infrastructure.ip_nextcloud', '172.18.4.105');
                 $occPath  = '/var/www/nextcloud/occ';
 
                 // List semua token user
@@ -165,9 +165,9 @@ class LoginController extends Controller
         }
         $keycloakLogoutUrl = $logoutUrl . '?' . http_build_query($params);
         // 2. Odoo force logout → Keycloak logout
-        $odooLogoutUrl = env('SERVICE_URL_ODOO', 'https://erp.logstack.web.id') . '/auth_oauth/force_logout?redirect=' . urlencode($keycloakLogoutUrl);
+        $odooLogoutUrl = config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id') . '/auth_oauth/force_logout?redirect=' . urlencode($keycloakLogoutUrl);
         // 3. oauth2-proxy sign_out → Odoo → Keycloak
-        $oauth2SignOutUrl = env('SERVICE_URL_SOGO', 'https://mbox.logstack.web.id') . '/oauth2/sign_out?rd=' . urlencode($odooLogoutUrl);
+        $oauth2SignOutUrl = config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id') . '/oauth2/sign_out?rd=' . urlencode($odooLogoutUrl);
         // Hapus sesi Laravel
         Auth::logout();
         $request->session()->invalidate();

@@ -80,23 +80,23 @@ Route::get('/document/download-raw', [App\Http\Controllers\OnlyOfficeViewControl
 Route::middleware(['auth'])->group(function () {
     Route::get('/open/sogo', function () {
         \App\Services\ActivityLogService::openApp('sogo', Auth::user()->username ?? Auth::user()->email, Auth::id());
-        return redirect(env('SERVICE_URL_SOGO', 'https://mbox.logstack.web.id') . '/SOGo');
+        return redirect(config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id') . '/SOGo');
     })->name('open.sogo');
     Route::get('/open/nextcloud', function () {
         \App\Services\ActivityLogService::openApp('nextcloud', Auth::user()->username ?? Auth::user()->email, Auth::id());
-        return redirect(env('SERVICE_URL_NEXTCLOUD', 'https://drive.logstack.web.id'));
+        return redirect(config('services.infrastructure.url_nextcloud', 'https://drive.logstack.web.id'));
     })->name('open.nextcloud');
     Route::get('/open/odoo', function () {
         \App\Services\ActivityLogService::openApp('odoo', Auth::user()->username ?? Auth::user()->email, Auth::id());
-        return redirect(env('SERVICE_URL_ODOO', 'https://erp.logstack.web.id'));
+        return redirect(config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id'));
     })->name('open.odoo');
     Route::get('/open/grafana', function () {
         \App\Services\ActivityLogService::openApp('grafana', Auth::user()->username ?? Auth::user()->email, Auth::id());
-        return redirect(env('SERVICE_URL_GRAFANA', 'https://monit.logstack.web.id'));
+        return redirect(config('services.infrastructure.url_grafana', 'https://monit.logstack.web.id'));
     })->name('open.grafana');
     Route::get('/open/keycloak', function () {
         \App\Services\ActivityLogService::openApp('keycloak', Auth::user()->username ?? Auth::user()->email, Auth::id());
-        return redirect(env('SERVICE_URL_KEYCLOAK', 'https://sso.logstack.web.id'));
+        return redirect(config('services.infrastructure.url_keycloak', 'https://sso.logstack.web.id'));
     })->name('open.keycloak');
 });
 // 9. ACTIVITY LOG API (JSON untuk Alpine.js)
@@ -220,6 +220,70 @@ Route::middleware(['auth'])->get('/api/mail/stats', function () {
     return response()->json($stats);
 })->name('api.mail.stats');
 
+// 12. MAIL QUOTA API (untuk widget SOGo dashboard)
+Route::middleware(['auth'])->get('/api/mail/quota', function () {
+    $username = Auth::user()->username ?? explode('@', Auth::user()->email)[0];
+    $doveadm = new \App\Services\DoveadmService();
+    $quota = $doveadm->getMailQuota($username);
+    return response()->json($quota);
+})->name('api.mail.quota');
+
+// 13. MAIL MESSAGE BODY API (untuk baca email inline)
+Route::middleware(['auth'])->get('/api/mail/message/{uid}', function ($uid) {
+    $username = Auth::user()->username ?? explode('@', Auth::user()->email)[0];
+    $mailbox  = request()->query('mailbox', 'INBOX');
+    // Validasi uid hanya angka
+    if (!preg_match('/^\d+$/', $uid)) {
+        return response()->json(['error' => 'UID tidak valid.'], 400);
+    }
+    $doveadm = new \App\Services\DoveadmService();
+    $body    = $doveadm->getMailBody($username, $uid, $mailbox);
+    return response()->json($body);
+})->name('api.mail.message');
+
+// 15. MAIL COMPOSE API
+Route::middleware(['auth'])->post('/api/mail/compose', function () {
+    $request = request();
+    $request->validate([
+        'to'      => 'required|email',
+        'subject' => 'required|string|max:255',
+        'body'    => 'required|string|max:10000',
+    ]);
+
+    $user     = Auth::user();
+    $fromEmail = $user->email ?? ($user->username . '@' . config('services.doveadm.domain', 'logstack.web.id'));
+    $fromName  = $user->name ?? $user->username;
+
+    try {
+        \Illuminate\Support\Facades\Mail::html(
+            nl2br(htmlspecialchars($request->body, ENT_QUOTES, 'UTF-8')),
+            function ($msg) use ($request, $fromEmail, $fromName) {
+                $msg->to($request->to)
+                    ->subject($request->subject)
+                    ->from($fromEmail, $fromName);
+            }
+        );
+        \App\Services\ActivityLogService::log('mail_compose', Auth::id(), "Kirim email ke {$request->to}: {$request->subject}");
+        return response()->json(['success' => true, 'message' => 'Email berhasil dikirim.']);
+    } catch (\Exception $e) {
+        \Illuminate\Support\Facades\Log::error("Mail compose error: " . $e->getMessage());
+        return response()->json(['success' => false, 'message' => 'Gagal mengirim email: ' . $e->getMessage()], 500);
+    }
+})->name('api.mail.compose');
+
+// 16. MAIL SEARCH API
+Route::middleware(['auth'])->get('/api/mail/search', function () {
+    $keyword = request()->query('q', '');
+    $mailbox = request()->query('mailbox', 'INBOX');
+    if (strlen(trim($keyword)) < 2) {
+        return response()->json([]);
+    }
+    $username = Auth::user()->username ?? explode('@', Auth::user()->email)[0];
+    $doveadm  = new \App\Services\DoveadmService();
+    $results  = $doveadm->searchEmails($username, $keyword, $mailbox);
+    return response()->json($results);
+})->name('api.mail.search');
+
 // 14. ODOO DASHBOARD API
 Route::middleware(['auth'])->get('/api/odoo/dashboard', function () {
     $user = Auth::user();
@@ -231,7 +295,7 @@ Route::middleware(['auth'])->get('/api/odoo/dashboard', function () {
 
 // 15. PROMETHEUS METRICS API
 Route::middleware(['auth', 'role:admin'])->get('/api/metrics', function () {
-    $prometheusUrl = env('PROMETHEUS_URL', 'http://172.18.4.108:9090');
+    $prometheusUrl = config('services.infrastructure.prometheus_url', 'http://172.18.4.108:9090');
 
     $nodes = [
         '172.18.4.101' => 'Nginx Gateway',
@@ -322,7 +386,7 @@ Route::middleware(['auth', 'role:admin'])->get('/api/metrics', function () {
 
 // 16. KEYCLOAK STATS API
 Route::middleware(['auth', 'role:admin'])->get('/api/keycloak/stats', function () {
-    $base = env('KEYCLOAK_INTERNAL_URL', 'http://172.18.4.104:8080');
+    $base = config('services.keycloak.internal_url', 'http://172.18.4.104:8080');
 
     $ch = curl_init($base . '/realms/master/protocol/openid-connect/token');
     curl_setopt_array($ch, [
@@ -330,8 +394,8 @@ Route::middleware(['auth', 'role:admin'])->get('/api/keycloak/stats', function (
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => http_build_query([
             'client_id' => 'admin-cli',
-            'username' => env('KC_ADMIN_USER', 'super-admin'),
-            'password' => env('KC_ADMIN_PASS'),
+            'username' => config('services.keycloak.admin_user', 'super-admin'),
+            'password' => config('services.keycloak.admin_password'),
             'grant_type' => 'password',
         ]),
         CURLOPT_TIMEOUT => 10,

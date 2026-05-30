@@ -202,7 +202,7 @@ class AccessRequestController extends Controller
     private function sendApprovalEmail(AccessRequest $accessRequest, string $password): void
     {
         try {
-            $mailDomain = env('SERVICE_MAIL_DOMAIN', 'logstack.web.id');
+            $mailDomain = config('services.infrastructure.mail_domain', 'logstack.web.id');
             $appName    = \App\Services\BrandingService::value('app_full_name', 'LogStack Central');
             $appUrl     = config('app.url');
 
@@ -234,7 +234,7 @@ class AccessRequestController extends Controller
     private function sendRejectionEmail(AccessRequest $accessRequest, string $reason): void
     {
         try {
-            $mailDomain = env('SERVICE_MAIL_DOMAIN', 'logstack.web.id');
+            $mailDomain = config('services.infrastructure.mail_domain', 'logstack.web.id');
             $appName    = \App\Services\BrandingService::value('app_full_name', 'LogStack Central');
 
             $subject = "Request Akses Ditolak - {$appName}";

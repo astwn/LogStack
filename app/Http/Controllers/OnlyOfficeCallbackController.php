@@ -15,9 +15,9 @@ class OnlyOfficeCallbackController extends Controller
      */
     private function ensureDocumentsFolder(string $username): void
     {
-        $ncBaseUrl  = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
-        $adminUser  = env('NEXTCLOUD_API_USER');
-        $adminToken = env('NEXTCLOUD_API_TOKEN');
+        $ncBaseUrl  = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
+        $adminUser  = config('services.nextcloud.api_user');
+        $adminToken = config('services.nextcloud.api_token');
         $docsDir    = "{$ncBaseUrl}/remote.php/dav/files/{$username}/Documents";
 
         try {
@@ -42,13 +42,13 @@ class OnlyOfficeCallbackController extends Controller
     {
         $body = $request->json()->all();
         if (isset($body['token'])) {
-            $body = (array) JWT::decode($body['token'], new Key(env('ONLYOFFICE_SECRET'), 'HS256'));
+            $body = (array) JWT::decode($body['token'], new Key(config('services.onlyoffice.secret'), 'HS256'));
         }
 
         if (isset($body['status']) && ($body['status'] == 2 || $body['status'] == 6)) {
             $targetUser = $request->query('user');
             $fileName   = $request->query('file');
-            $ncBaseUrl  = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+            $ncBaseUrl  = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
             $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             $mimeTypes = [
