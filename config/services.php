@@ -19,6 +19,11 @@ return [
         'realms'        => env('KEYCLOAK_REALM'), // Pakai 'realms' sesuai kebutuhan vendor
     ],
 
+    'authorization_center' => [
+        'url' => rtrim(env('AUTHORIZATION_CENTER_URL', env('AUTHORIZATION_SERVER_URL', 'http://localhost:8080')), '/'),
+        'app_code' => env('AUTHORIZATION_CENTER_APP_CODE', env('AUTHORIZATION_APP_CODE', 'logstack-app')),
+    ],
+
    'freeipa' => [
         'url' => env('FREEIPA_URL', 'https://ipa.logstack.web.id'),
         'user' => env('FREEIPA_ADMIN_USER', 'admin'),

@@ -10,6 +10,8 @@ class OdooService
     protected string $db;
     protected string $username;
     protected string $password;
+    protected int $timeout;
+    protected int $connectTimeout;
     protected ?int $uid = null;
 
     public function __construct()
@@ -18,10 +20,16 @@ class OdooService
         $this->db       = config('services.odoo.db', 'odoo');
         $this->username = config('services.odoo.username');
         $this->password = config('services.odoo.password');
+        $this->timeout = (int) env('ODOO_RPC_TIMEOUT', app()->environment('local') ? 1 : 5);
+        $this->connectTimeout = (int) env('ODOO_RPC_CONNECT_TIMEOUT', app()->environment('local') ? 1 : 3);
     }
 
     protected function jsonrpc(string $service, string $method, array $args): mixed
     {
+        if (!$this->url || !$this->username || !$this->password) {
+            return null;
+        }
+
         $payload = json_encode([
             'jsonrpc' => '2.0',
             'method'  => 'call',
@@ -39,10 +47,20 @@ class OdooService
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $payload,
             CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_CONNECTTIMEOUT  => $this->connectTimeout,
+            CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_NOSIGNAL       => true,
         ]);
 
         $response = curl_exec($ch);
+        if ($response === false) {
+            Log::warning('Odoo JSON-RPC timeout/error', [
+                'url' => $this->url,
+                'service' => $service,
+                'method' => $method,
+                'error' => curl_error($ch),
+            ]);
+        }
         curl_close($ch);
 
         if (!$response) return null;
@@ -120,6 +138,10 @@ class OdooService
 
     public function getUserDashboard(string $userEmail): array
     {
+        if (app()->environment('local') && env('ODOO_DASHBOARD_LOCAL_ENABLED', false) === false) {
+            return $this->emptyDashboard();
+        }
+
         // Tasks assigned to user
         $tasks = $this->execute('project.task', 'search_read',
             [[['user_ids.login', '=', $userEmail]]],
@@ -172,6 +194,23 @@ class OdooService
             'meetings'   => $meetings,
             'todos'      => $todos,
             'leads'      => $leads,
+        ];
+    }
+
+    protected function emptyDashboard(): array
+    {
+        return [
+            'summary' => [
+                'tasks'      => 0,
+                'activities' => 0,
+                'meetings'   => 0,
+                'leads'      => 0,
+            ],
+            'tasks'      => [],
+            'activities' => [],
+            'meetings'   => [],
+            'todos'      => [],
+            'leads'      => [],
         ];
     }
 }

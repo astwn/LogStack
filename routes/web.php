@@ -7,14 +7,13 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\OnlyOfficeViewController;
 use App\Http\Controllers\OnlyOfficeCallbackController;
 use App\Http\Controllers\BrandingController;
+use App\Services\AuthorizationCenterClient;
 use Illuminate\Support\Facades\Auth;
 
 // 1. Halaman Depan (Welcome) dengan proteksi deteksi Session dan Role
 Route::get('/', function () {
     if (Auth::check()) {
-        return Auth::user()->role === 'admin'
-            ? redirect()->route('dashboard')
-            : redirect()->route('user.dashboard');
+        return redirect()->route('dashboard');
     }
     return view('welcome');
 })->name('home');
@@ -25,9 +24,10 @@ Route::get('/login', [LoginController::class, 'redirectToProvider'])->name('logi
 Route::get('/login/callback', [LoginController::class, 'handleProviderCallback'])->name('login.callback');
 Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
 
-// 3. JALUR KHUSUS ADMIN (Hanya untuk group dash_admin)
-Route::middleware(['auth', 'role:admin'])->group(function () {
+// 3. DASHBOARD UTAMA (rendering menu dikontrol oleh Authorization Center)
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('dashboard');
+    Route::get('/user-dashboard', fn () => redirect()->route('dashboard'))->name('user.dashboard');
     Route::get('/admin/nextcloud', [DashboardController::class, 'nextcloudMonitor'])->name('admin.nextcloud');
     Route::post('/admin/nextcloud/update-quota', [DashboardController::class, 'updateUserQuota'])->name('admin.nextcloud.update-quota');
 
@@ -42,13 +42,22 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/branding/reset', [BrandingController::class, 'reset'])->name('admin.branding.reset');
 });
 
-// 4. JALUR KHUSUS USER BIASA (Untuk group ipausers biasa)
-Route::middleware(['auth', 'role:user'])->group(function () {
-    Route::get('/user-dashboard', [DashboardController::class, 'userDashboard'])->name('user.dashboard');
-});
-
 // 5. JALUR BERSAMA ONLYOFFICE DOCUMENT (Wajib Login)
 Route::middleware(['auth'])->group(function () {
+    Route::get('/api/authz/access', function () {
+        return response()->json([
+            'success' => true,
+            'data' => AuthorizationCenterClient::accessSnapshot(),
+        ]);
+    })->name('api.authz.access');
+
+    Route::post('/api/authz/access/refresh', function (AuthorizationCenterClient $authorizationCenter) {
+        return response()->json([
+            'success' => true,
+            'data' => $authorizationCenter->refreshAccessSnapshot(force: true),
+        ]);
+    })->name('api.authz.access.refresh');
+
     Route::get('/document/edit', [OnlyOfficeViewController::class, 'openDocument'])->name('document.edit');
     Route::get('/api/documents/list', [OnlyOfficeViewController::class, 'getFilesList'])->name('api.documents.list');
     Route::delete('/api/documents/delete', [OnlyOfficeViewController::class, 'deleteDocument'])->name('api.documents.delete');
@@ -88,7 +97,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('open.keycloak');
 });
 // 9. ACTIVITY LOG API (JSON untuk Alpine.js)
-Route::middleware(['auth', 'role:admin'])->get('/admin/activity-log/api', function () {
+Route::middleware(['auth'])->get('/admin/activity-log/api', function () {
     $query = \App\Models\ActivityLog::latest();
     if (request('username')) $query->byUsername(request('username'));
     if (request('app')) $query->byApp(request('app'));
@@ -218,7 +227,7 @@ Route::middleware(['auth'])->get('/api/odoo/dashboard', function () {
 })->name('api.odoo.dashboard');
 
 // 15. PROMETHEUS METRICS API
-Route::middleware(['auth', 'role:admin'])->get('/api/metrics', function () {
+Route::middleware(['auth'])->get('/api/metrics', function () {
     $prometheusUrl = env('PROMETHEUS_URL', 'http://172.18.4.108:9090');
 
     $nodes = [
@@ -309,7 +318,7 @@ Route::middleware(['auth', 'role:admin'])->get('/api/metrics', function () {
 })->name('api.metrics');
 
 // 16. KEYCLOAK STATS API
-Route::middleware(['auth', 'role:admin'])->get('/api/keycloak/stats', function () {
+Route::middleware(['auth'])->get('/api/keycloak/stats', function () {
     $base = env('KEYCLOAK_INTERNAL_URL', 'http://172.18.4.104:8080');
 
     $ch = curl_init($base . '/realms/master/protocol/openid-connect/token');

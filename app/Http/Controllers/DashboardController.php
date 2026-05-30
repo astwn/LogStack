@@ -51,6 +51,73 @@ class DashboardController extends Controller
     }
 
     /**
+     * Local memory stats with Linux and macOS fallback.
+     */
+    private function getLocalMemoryStats(): array
+    {
+        $default = [
+            'total_mb' => 0,
+            'used_mb' => 0,
+            'usage_percentage' => 0,
+        ];
+
+        try {
+            $freeMem = shell_exec('free -m 2>/dev/null');
+
+            if (is_string($freeMem) && trim($freeMem) !== '') {
+                $freeMemLines = preg_split('/\r\n|\r|\n/', trim($freeMem));
+                $memoryLine = collect($freeMemLines)->first(fn ($line) => str_starts_with(trim($line), 'Mem:'));
+
+                if ($memoryLine) {
+                    $memDetails = preg_split('/\s+/', trim($memoryLine));
+                    $ramTotal = (int) ($memDetails[1] ?? 0);
+                    $ramUsed = (int) ($memDetails[2] ?? 0);
+
+                    if ($ramTotal > 0) {
+                        return [
+                            'total_mb' => $ramTotal,
+                            'used_mb' => $ramUsed,
+                            'usage_percentage' => round(($ramUsed / $ramTotal) * 100, 2),
+                        ];
+                    }
+                }
+            }
+
+            $totalBytes = (int) trim((string) shell_exec('sysctl -n hw.memsize 2>/dev/null'));
+            $vmStat = shell_exec('vm_stat 2>/dev/null');
+
+            if ($totalBytes > 0 && is_string($vmStat) && trim($vmStat) !== '') {
+                preg_match('/page size of (\d+) bytes/i', $vmStat, $pageSizeMatch);
+                $pageSize = (int) ($pageSizeMatch[1] ?? 4096);
+
+                $extractPages = function (string $label) use ($vmStat): int {
+                    if (preg_match('/' . preg_quote($label, '/') . ':\s+([\d.]+)/i', $vmStat, $match)) {
+                        return (int) str_replace('.', '', $match[1]);
+                    }
+
+                    return 0;
+                };
+
+                $freePages = $extractPages('Pages free') + $extractPages('Pages inactive') + $extractPages('Pages speculative');
+                $freeBytes = $freePages * $pageSize;
+                $usedBytes = max(0, $totalBytes - $freeBytes);
+                $ramTotal = round($totalBytes / 1024 / 1024);
+                $ramUsed = round($usedBytes / 1024 / 1024);
+
+                return [
+                    'total_mb' => $ramTotal,
+                    'used_mb' => $ramUsed,
+                    'usage_percentage' => $ramTotal > 0 ? round(($ramUsed / $ramTotal) * 100, 2) : 0,
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Unable to read local memory stats: ' . $e->getMessage());
+        }
+
+        return $default;
+    }
+
+    /**
      * UTILITY API: MODUL GANTI QUOTA USER NEXTCLOUD
      */
     public function updateUserQuota(Request $request)
@@ -94,12 +161,10 @@ class DashboardController extends Controller
         $diskTotalGb = round($diskTotal / (1024 * 1024 * 1024), 2);
         $diskUsedGb = round($diskUsed / (1024 * 1024 * 1024), 2);
 
-        $freeMem = shell_exec('free -m');
-        $freeMemLines = explode("\n", trim($freeMem));
-        $memDetails = preg_split('/ +/', trim($freeMemLines[1]));
-        $ramTotal = $memDetails[1];
-        $ramUsed = $memDetails[2];
-        $ramUsagePercentage = round(($ramUsed / $ramTotal) * 100, 2);
+        $memoryStats = $this->getLocalMemoryStats();
+        $ramTotal = $memoryStats['total_mb'];
+        $ramUsed = $memoryStats['used_mb'];
+        $ramUsagePercentage = $memoryStats['usage_percentage'];
 
         $cpuLoad = sys_getloadavg();
         $cpuLoadValue = isset($cpuLoad[0]) ? round($cpuLoad[0], 2) : 0.00;
