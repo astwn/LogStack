@@ -22,7 +22,7 @@
             </button>
             <a href="{{ route('login.sso') }}" class="px-5 py-2.5 text-white text-[11px] font-bold rounded-lg transition-all shadow-lg uppercase tracking-wider"
                style="background-color: {{ $brand['primary_color'] }}">
-                Masuk SSO
+                Sign In
             </a>
         </div>
     </nav>

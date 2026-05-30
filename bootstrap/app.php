@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // DAFTARKAN MIDDLEWARE ROLE DI SINI (Laravel 11 Style)
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'authz' => \App\Http\Middleware\CheckPermission::class,
         ]);
     })
 

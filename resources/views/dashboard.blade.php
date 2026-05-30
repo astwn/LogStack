@@ -1,7 +1,35 @@
-﻿<x-layouts.app title="Admin Portal | {{ $branding['app_full_name'] }}" loaderText="{{ $branding['loader_text'] }} Admin">
+﻿@php
+    use App\Services\AuthorizationCenterClient;
+
+    $can = fn (string $permission) => AuthorizationCenterClient::can($permission);
+    $mainTabs = [
+        'main' => ['permission' => 'logstack.dashboard.read'],
+        'documents' => ['permission' => 'logstack.user-documents.read'],
+        'nextcloud' => ['permission' => 'logstack.user-files.read'],
+        'odoo' => ['permission' => 'logstack.user-erp.read'],
+        'sogo' => ['permission' => 'logstack.user-webmail.read'],
+        'profile' => ['permission' => 'logstack.profile.read'],
+    ];
+    $adminTabs = [
+        'admin_status' => ['permission' => 'logstack.admin-service-status.read'],
+        'admin_nextcloud_monitor' => ['permission' => 'logstack.admin-storage-monitor.read'],
+        'admin_freeipa' => ['permission' => 'logstack.admin-user-directory.read'],
+        'admin_sso' => ['permission' => 'logstack.admin-sso-sessions.read'],
+        'admin_monit' => ['permission' => 'logstack.admin-resource-monitoring.read'],
+        'activity_log' => ['permission' => 'logstack.admin-activity-log.read'],
+        'access_requests' => ['permission' => 'logstack.admin-access-requests.read'],
+        'branding' => ['permission' => 'logstack.admin-brending.read'],
+    ];
+    $allowedTabs = array_values(array_filter(array_keys($mainTabs + $adminTabs), fn ($tab) => $can(($mainTabs + $adminTabs)[$tab]['permission'])));
+    $defaultTab = $allowedTabs[0] ?? 'no_access';
+    $hasAdminTabs = count(array_filter($adminTabs, fn ($tab) => $can($tab['permission']))) > 0;
+    $hasMainTabs = count(array_filter($mainTabs, fn ($tab) => $can($tab['permission']))) > 0;
+@endphp
+<x-layouts.app title="Portal | {{ $branding['app_full_name'] }}" loaderText="{{ $branding['loader_text'] }}">
     <div class="flex h-screen overflow-hidden flex-1"
          x-data="{
-            currentTab: localStorage.getItem('activeTab') || 'main',
+            allowedTabs: @js($allowedTabs),
+            currentTab: localStorage.getItem('activeTab') || @js($defaultTab),
             sidebarOpen: localStorage.getItem('sidebarOpen') !== 'false',
             mobileOpen: false,
             pendingRequests: 0,
@@ -43,8 +71,23 @@
                 this.editConfirmPassword = '';
             }
          }"
-         @open-edit-modal.window="editUser.username = $event.detail.username; editUser.first_name = $event.detail.first_name; editUser.last_name = $event.detail.last_name; editUser.email = $event.detail.email; editUser.group = $event.detail.group; editPassword = ''; editConfirmPassword = ''; showEditModal = true;"
-         x-init="fetchPendingRequests(); setInterval(() => fetchPendingRequests(), 60000)">
+         x-init="
+            if (!allowedTabs.includes(currentTab)) switchTab(allowedTabs[0] || 'no_access');
+            if (allowedTabs.includes('access_requests')) {
+                fetchPendingRequests();
+                setInterval(() => fetchPendingRequests(), 60000);
+            }
+         "
+         @open-edit-modal.window="
+            editUser.username   = $event.detail.username;
+            editUser.first_name = $event.detail.first_name;
+            editUser.last_name  = $event.detail.last_name;
+            editUser.email      = $event.detail.email;
+            editUser.group      = $event.detail.group;
+            editPassword        = '';
+            editConfirmPassword = '';
+            showEditModal       = true;
+         ">
 
         {{-- MOBILE OVERLAY --}}
         <div x-show="mobileOpen"
@@ -80,6 +123,7 @@
                         </button>
                     </div>
 
+                    @if($can('logstack.dashboard.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('main')" :class="currentTab === 'main' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-home w-4 flex-shrink-0"></i>
@@ -87,6 +131,8 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Overview</div>
                     </div>
+                    @endif
+                    @if($can('logstack.user-documents.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('documents')" :class="currentTab === 'documents' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-file-alt w-4 flex-shrink-0"></i>
@@ -94,6 +140,8 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Documents</div>
                     </div>
+                    @endif
+                    @if($can('logstack.user-files.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('nextcloud')" :class="currentTab === 'nextcloud' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-cloud w-4 flex-shrink-0"></i>
@@ -101,6 +149,8 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">File Manager</div>
                     </div>
+                    @endif
+                    @if($can('logstack.user-erp.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('odoo')" :class="currentTab === 'odoo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-briefcase w-4 flex-shrink-0"></i>
@@ -108,6 +158,8 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">ERP System</div>
                     </div>
+                    @endif
+                    @if($can('logstack.user-webmail.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('sogo')" :class="currentTab === 'sogo' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-envelope w-4 flex-shrink-0"></i>
@@ -115,6 +167,8 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">Webmail</div>
                     </div>
+                    @endif
+                    @if($can('logstack.profile.read'))
                     <div class="relative group/tip">
                         <button @click="switchTab('profile')" :class="currentTab === 'profile' ? 'bg-blue-600 text-white shadow-md shadow-blue-600/10' : 'text-slate-600 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800'" class="w-full flex items-center px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors" :class="sidebarOpen ? 'space-x-3' : 'justify-center'">
                             <i class="fas fa-user w-4 flex-shrink-0"></i>
@@ -122,9 +176,11 @@
                         </button>
                         <div x-show="!sidebarOpen" class="absolute left-14 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">My Profile</div>
                     </div>
+                    @endif
                 </div>
 
                 {{-- Management Section --}}
+                @if($hasAdminTabs)
                 <div class="mt-8">
                     <div x-show="sidebarOpen" x-transition.opacity class="h-px bg-slate-200 dark:bg-slate-800 mb-3"></div>
                     <p x-show="sidebarOpen" x-transition.opacity class="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider px-3 mb-2">Management</p>
@@ -144,22 +200,25 @@
                     </div>
                     <div x-show="adminExpand && sidebarOpen" x-transition class="mt-1 pl-3">
                         <div class="border-l-2 border-slate-200 dark:border-slate-700 pl-3 space-y-0.5">
-                            <button type="button" @click="switchTab('admin_status')" :class="currentTab === 'admin_status' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-tachometer-alt text-[10px] w-3"></i> Service Status</button>
-                            <button type="button" @click="switchTab('admin_nextcloud_monitor')" :class="currentTab === 'admin_nextcloud_monitor' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-cloud text-[10px] w-3"></i> Storage Monitor</button>
-                            <button type="button" @click="switchTab('admin_freeipa')" :class="currentTab === 'admin_freeipa' ? 'text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-key text-[10px] w-3"></i> User Directory</button>
-                            <button type="button" @click="switchTab('admin_sso')" :class="currentTab === 'admin_sso' ? 'text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-shield-alt text-[10px] w-3"></i> SSO Sessions</button>
-                            <button type="button" @click="switchTab('admin_monit')" :class="currentTab === 'admin_monit' ? 'text-orange-600 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-chart-bar text-[10px] w-3"></i> Resource Monitoring</button>
-                            <button type="button" @click="switchTab('activity_log')" :class="currentTab === 'activity_log' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-history text-[10px] w-3"></i> Activity Log</button>
+                            @if($can('logstack.admin-service-status.read'))<button type="button" @click="switchTab('admin_status')" :class="currentTab === 'admin_status' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-tachometer-alt text-[10px] w-3"></i> Admin Status</button>@endif
+                            @if($can('logstack.admin-storage-monitor.read'))<button type="button" @click="switchTab('admin_nextcloud_monitor')" :class="currentTab === 'admin_nextcloud_monitor' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-cloud text-[10px] w-3"></i> Nextcloud Monitor</button>@endif
+                            @if($can('logstack.admin-user-directory.read'))<button type="button" @click="switchTab('admin_freeipa')" :class="currentTab === 'admin_freeipa' ? 'text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-key text-[10px] w-3"></i> FreeIPA Directory</button>@endif
+                            @if($can('logstack.admin-sso-sessions.read'))<button type="button" @click="switchTab('admin_sso')" :class="currentTab === 'admin_sso' ? 'text-purple-600 dark:text-purple-400 font-bold bg-purple-50 dark:bg-purple-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-shield-alt text-[10px] w-3"></i> Keycloak SSO</button>@endif
+                            @if($can('logstack.admin-resource-monitoring.read'))<button type="button" @click="switchTab('admin_monit')" :class="currentTab === 'admin_monit' ? 'text-orange-600 dark:text-orange-400 font-bold bg-orange-50 dark:bg-orange-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-chart-bar text-[10px] w-3"></i> Monit Grafana</button>@endif
+                            @if($can('logstack.admin-activity-log.read'))<button type="button" @click="switchTab('activity_log')" :class="currentTab === 'activity_log' ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-history text-[10px] w-3"></i> Activity Log</button>@endif
+                            @if($can('logstack.admin-access-requests.read'))
                             <button type="button" @click="switchTab('access_requests')" :class="currentTab === 'access_requests' ? 'text-yellow-600 dark:text-yellow-400 font-bold bg-yellow-50 dark:bg-yellow-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5 relative">
                                 <i class="fas fa-bell text-[10px] w-3"></i> Access Requests
                                 <span x-show="pendingRequests > 0" x-text="pendingRequests"
                                     class="ml-auto bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center" x-cloak></span>
                             </button>
-                            <button type="button" @click="switchTab('branding')" :class="currentTab === 'branding' ? 'text-pink-600 dark:text-pink-400 font-bold bg-pink-50 dark:bg-pink-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-palette text-[10px] w-3"></i> Branding</button>
-                            <a href="/log-viewer" target="_blank" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 mt-1"><i class="fas fa-terminal text-[10px] w-3"></i> Open LogViewer</a>
+                            @endif
+                            @if($can('logstack.admin-brending.read'))<button type="button" @click="switchTab('branding')" :class="currentTab === 'branding' ? 'text-pink-600 dark:text-pink-400 font-bold bg-pink-50 dark:bg-pink-950/30' : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40'" class="w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2.5"><i class="fas fa-palette text-[10px] w-3"></i> Branding</button>@endif
+                            @if($can('logstack.admin-open-log-viewer.read'))<a href="/log-viewer" target="_blank" class="w-full text-left px-3 py-2 rounded-lg text-xs text-slate-400 dark:text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-gray-800/40 transition-colors flex items-center gap-2.5 mt-1"><i class="fas fa-terminal text-[10px] w-3"></i> Open LogViewer</a>@endif
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
 
             {{-- BOTTOM: User Info --}}
@@ -170,7 +229,7 @@
                     </div>
                     <div x-show="sidebarOpen" x-transition.opacity class="truncate min-w-0">
                         <p class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ Auth::user()->name }}</p>
-                        <span class="text-[9px] bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">Admin Role</span>
+                        <span class="text-[9px] bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/40 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">{{ $hasAdminTabs ? 'Privileged Access' : 'User Access' }}</span>
                     </div>
                 </div>
             </div>
@@ -196,8 +255,22 @@
                 </div>
             </header>
             <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto bg-white dark:bg-[#0b0e14]">
-                <div x-show="currentTab === 'main'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.main')</div>
+                <div x-show="currentTab === 'no_access'" x-transition x-cloak class="max-w-xl mx-auto mt-20 text-center">
+                    <div class="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-lock text-lg"></i>
+                    </div>
+                    <h1 class="text-xl font-black text-slate-900 dark:text-white">Akses belum tersedia</h1>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">Akun ini belum memiliki permission menu untuk aplikasi LogStack.</p>
+                </div>
+                @if($can('logstack.dashboard.read'))
+                <div x-show="currentTab === 'main'" x-transition x-cloak class="space-y-6">
+                    @include($hasAdminTabs ? 'admin.dashboard.main' : 'admin.dashboard.user_main')
+                </div>
+                @endif
+                @if($can('logstack.user-documents.read'))
                 <div x-show="currentTab === 'documents'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.documents')</div>
+                @endif
+                @if($can('logstack.user-files.read'))
                 <div x-show="currentTab === 'nextcloud'" x-transition x-cloak class="space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
                         <div><h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Nextcloud Storage Drive</h1><p class="text-xs text-slate-500 dark:text-gray-400 font-medium">Manajemen alokasi storage, sinkronisasi file, dan kuota data cloud.</p></div>
@@ -205,6 +278,8 @@
                     </div>
                     @include('admin.nextcloud.panel')
                 </div>
+                @endif
+                @if($can('logstack.user-erp.read'))
                 <div x-show="currentTab === 'odoo'" x-transition x-cloak class="space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
                         <div><h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Odoo ERP System</h1><p class="text-xs text-slate-500 dark:text-gray-400 font-medium">Sistem perencanaan sumber daya perusahaan terintegrasi.</p></div>
@@ -212,6 +287,8 @@
                     </div>
                     @include('admin.dashboard.odoo')
                 </div>
+                @endif
+                @if($can('logstack.user-webmail.read'))
                 <div x-show="currentTab === 'sogo'" x-transition x-cloak class="space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
                         <div><h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">SOGo Webmail</h1><p class="text-xs text-slate-500 dark:text-gray-400 font-medium">Layanan email korporat, kalender, dan buku alamat tersinkronisasi.</p></div>
@@ -219,7 +296,11 @@
                     </div>
                     @include('admin.dashboard.sogo')
                 </div>
+                @endif
+                @if($can('logstack.profile.read'))
                 <div x-show="currentTab === 'profile'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.profile')</div>
+                @endif
+                @if($can('logstack.admin-storage-monitor.read'))
                 <div x-show="currentTab === 'admin_nextcloud_monitor'" x-transition x-cloak class="space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
                         <div><h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">Nextcloud User Quota Center</h1><p class="text-xs text-slate-500 dark:text-gray-400 font-medium">Audit kapasitas storage dan manajemen kuota user network.</p></div>
@@ -230,10 +311,20 @@
                     </div>
                     @include('admin.nextcloud.monitor')
                 </div>
+                @endif
+                @if($can('logstack.admin-service-status.read'))
                 <div x-show="currentTab === 'admin_status'" x-transition x-cloak>@include('admin.dashboard.admin_status')</div>
+                @endif
+                @if($can('logstack.admin-user-directory.read'))
                 <div x-show="currentTab === 'admin_freeipa'" x-transition x-cloak>@include('admin.dashboard.admin_freeipa')</div>
+                @endif
+                @if($can('logstack.admin-access-requests.read'))
                 <div x-show="currentTab === 'access_requests'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.access_requests')</div>
+                @endif
+                @if($can('logstack.admin-brending.read'))
                 <div x-show="currentTab === 'branding'" x-transition x-cloak class="space-y-6">@include('admin.dashboard.branding')</div>
+                @endif
+                @if($can('logstack.admin-sso-sessions.read'))
                 <div x-show="currentTab === 'admin_sso'" x-transition x-cloak class="space-y-6"
                      x-data="{
                         stats: { user_count: 0, client_count: 0, total_sessions: 0, sessions: [], user_sessions: [] },
@@ -385,6 +476,8 @@
                         </div>
                     </div>
                 </div>
+                @endif
+                @if($can('logstack.admin-resource-monitoring.read'))
                 <div x-show="currentTab === 'admin_monit'" x-transition class="space-y-6"
                      x-data="{
                         metrics: [],
@@ -541,6 +634,8 @@
                         </div>
                     </div>
                 </div>
+                @endif
+                @if($can('logstack.admin-activity-log.read'))
                 <div x-show="currentTab === 'activity_log'" x-transition x-cloak
                      x-data="{
                         logs: [], loading: true, currentPage: 1, lastPage: 1, total: 0,
@@ -606,6 +701,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </main>
             {{-- FOOTER --}}
             <footer class="flex-shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white/80 dark:bg-[#111827]/80 px-4 sm:px-8 py-3 flex items-center justify-between gap-4">

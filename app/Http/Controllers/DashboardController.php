@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use App\Services\FreeIPAService;
 use App\Services\NextcloudService;
 use App\Services\BrandingService;
+use App\Services\AuthorizationCenterClient;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -40,14 +41,90 @@ class DashboardController extends Controller
     private function getServiceUrls(): array
     {
         return [
-            'nextcloud'   => env('SERVICE_URL_NEXTCLOUD', 'https://drive.logstack.web.id'),
-            'odoo'        => env('SERVICE_URL_ODOO', 'https://erp.logstack.web.id'),
-            'sogo'        => env('SERVICE_URL_SOGO', 'https://mbox.logstack.web.id'),
-            'freeipa'     => env('SERVICE_URL_FREEIPA', 'https://ipa.logstack.web.id'),
-            'grafana'     => env('SERVICE_URL_GRAFANA', 'https://monit.logstack.web.id'),
-            'keycloak'    => env('SERVICE_URL_KEYCLOAK', 'https://sso.logstack.web.id'),
-            'mail_domain' => env('SERVICE_MAIL_DOMAIN', 'logstack.web.id'),
+            'nextcloud' => config('services.infrastructure.url_nextcloud', 'https://drive.logstack.web.id'),
+            'odoo' => config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id'),
+            'sogo' => config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id'),
+            'freeipa' => config('services.infrastructure.url_freeipa', 'https://ipa.logstack.web.id'),
+            'grafana' => config('services.infrastructure.url_grafana', 'https://monit.logstack.web.id'),
+            'keycloak' => config('services.infrastructure.url_keycloak', 'https://sso.logstack.web.id'),
+            'mail_domain' => config('services.infrastructure.mail_domain', 'logstack.web.id'),
         ];
+    }
+
+    /**
+     * Local memory stats with Linux and macOS fallback.
+     */
+    private function getLocalMemoryStats(): array
+    {
+        $default = [
+            'total_mb' => 0,
+            'used_mb' => 0,
+            'usage_percentage' => 0,
+        ];
+
+        try {
+            $freeMem = shell_exec('free -m 2>/dev/null');
+
+            if (is_string($freeMem) && trim($freeMem) !== '') {
+                $freeMemLines = preg_split('/\r\n|\r|\n/', trim($freeMem));
+                $memoryLine = collect($freeMemLines)->first(fn($line) => str_starts_with(trim($line), 'Mem:'));
+
+                if ($memoryLine) {
+                    $memDetails = preg_split('/\s+/', trim($memoryLine));
+                    $ramTotal = (int) ($memDetails[1] ?? 0);
+                    $ramUsed = (int) ($memDetails[2] ?? 0);
+
+                    if ($ramTotal > 0) {
+                        return [
+                            'total_mb' => $ramTotal,
+                            'used_mb' => $ramUsed,
+                            'usage_percentage' => round(($ramUsed / $ramTotal) * 100, 2),
+                        ];
+                    }
+                }
+            }
+
+            $totalBytes = (int) trim((string) shell_exec('sysctl -n hw.memsize 2>/dev/null'));
+            $vmStat = shell_exec('vm_stat 2>/dev/null');
+
+            if ($totalBytes > 0 && is_string($vmStat) && trim($vmStat) !== '') {
+                preg_match('/page size of (\d+) bytes/i', $vmStat, $pageSizeMatch);
+                $pageSize = (int) ($pageSizeMatch[1] ?? 4096);
+
+                $extractPages = function (string $label) use ($vmStat): int {
+                    if (preg_match('/' . preg_quote($label, '/') . ':\s+([\d.]+)/i', $vmStat, $match)) {
+                        return (int) str_replace('.', '', $match[1]);
+                    }
+
+                    return 0;
+                };
+
+                $freePages = $extractPages('Pages free') + $extractPages('Pages inactive') + $extractPages('Pages speculative');
+                $freeBytes = $freePages * $pageSize;
+                $usedBytes = max(0, $totalBytes - $freeBytes);
+                $ramTotal = round($totalBytes / 1024 / 1024);
+                $ramUsed = round($usedBytes / 1024 / 1024);
+
+                return [
+                    'total_mb' => $ramTotal,
+                    'used_mb' => $ramUsed,
+                    'usage_percentage' => $ramTotal > 0 ? round(($ramUsed / $ramTotal) * 100, 2) : 0,
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Unable to read local memory stats: ' . $e->getMessage());
+        }
+
+        return $default;
+    }
+
+    private function syncAccessSnapshotForRender(AuthorizationCenterClient $authorizationCenter): void
+    {
+        try {
+            $authorizationCenter->refreshAccessSnapshot(force: true);
+        } catch (\Throwable $e) {
+            Log::warning('Authorization access render sync gagal: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -60,9 +137,9 @@ class DashboardController extends Controller
             'quota' => 'required|string'
         ]);
 
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
 
         try {
             $response = Http::withBasicAuth($apiUser, $apiToken)
@@ -84,8 +161,10 @@ class DashboardController extends Controller
         }
     }
 
-    public function adminDashboard()
+    public function adminDashboard(AuthorizationCenterClient $authorizationCenter)
     {
+        $this->syncAccessSnapshotForRender($authorizationCenter);
+
         // 1. Logika Monitoring local resource server App Portal
         $diskTotal = disk_total_space(base_path());
         $diskFree = disk_free_space(base_path());
@@ -94,37 +173,27 @@ class DashboardController extends Controller
         $diskTotalGb = round($diskTotal / (1024 * 1024 * 1024), 2);
         $diskUsedGb = round($diskUsed / (1024 * 1024 * 1024), 2);
 
-        $freeMem = shell_exec('free -m');
-        $freeMemLines = explode("\n", trim($freeMem));
-        $memDetails = preg_split('/ +/', trim($freeMemLines[1]));
-        $ramTotal = $memDetails[1];
-        $ramUsed = $memDetails[2];
-        $ramUsagePercentage = round(($ramUsed / $ramTotal) * 100, 2);
+        $memoryStats = $this->getLocalMemoryStats();
+        $ramTotal = $memoryStats['total_mb'];
+        $ramUsed = $memoryStats['used_mb'];
+        $ramUsagePercentage = $memoryStats['usage_percentage'];
 
         $cpuLoad = sys_getloadavg();
         $cpuLoadValue = isset($cpuLoad[0]) ? round($cpuLoad[0], 2) : 0.00;
 
         // 2. LIVE HEALTH CHECK
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
-            'odoo'      => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
-            'sogo'      => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
-            'freeipa'   => $this->checkAppStatus(env('SERVICE_IP_FREEIPA', '172.18.4.103'), env('SERVICE_PORT_FREEIPA', 443)),
-            'grafana'   => $this->checkAppStatus(env('SERVICE_IP_GRAFANA', '172.18.4.108'), env('SERVICE_PORT_GRAFANA', 3000)),
-            'nginx'     => $this->checkAppStatus(env('SERVICE_IP_NGINX', '172.18.4.101'), env('SERVICE_PORT_NGINX', 80)),
+            'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
+            'odoo' => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo' => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
+            'freeipa' => $this->checkAppStatus(config('services.infrastructure.ip_freeipa', '172.18.4.103'), config('services.infrastructure.port_freeipa', 443)),
+            'grafana' => $this->checkAppStatus(config('services.infrastructure.ip_grafana', '172.18.4.108'), config('services.infrastructure.port_grafana', 3000)),
+            'nginx' => $this->checkAppStatus(config('services.infrastructure.ip_nginx', '172.18.4.101'), config('services.infrastructure.port_nginx', 80)),
         ];
 
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
-
-        $ncStorage = [
-            'total_gb' => '0',
-            'used_gb' => '0',
-            'free_gb' => '0',
-            'percentage' => 0,
-            'display_total' => '0 GB'
-        ];
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
         $nextcloudQuota = [
             'free_gb' => 0,
             'used_gb' => 0,
@@ -132,13 +201,20 @@ class DashboardController extends Controller
             'relative' => 0,
             'display_total' => 'Unlimited'
         ];
-        
+
         $recentActivities = [];
-        $ncUserStorageList = []; 
+        $ncUserStorageList = [];
+        $ncStorage = [
+            'total_gb' => 0,
+            'used_gb' => 0,
+            'free_gb' => 0,
+            'percentage' => 0,
+            'display_total' => '0 GB',
+        ];
 
         // 3. AMBIL DATA STORAGE REALTIME OS VIA SSH PORT 2227
         try {
-            $sshCommand = "ssh -i " . env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa') . " -o StrictHostKeyChecking=no -p " . env('NEXTCLOUD_SSH_PORT', 2227) . " " . env('NEXTCLOUD_SSH_USER', 'root') . "@" . env('SERVICE_IP_NEXTCLOUD', '172.18.4.105') . " 'df -Th / | tail -n 1' 2>&1";
+            $sshCommand = "ssh -i " . config('services.nextcloud.ssh_key', '/var/www/.ssh/id_rsa') . " -o StrictHostKeyChecking=no -p " . config('services.nextcloud.ssh_port', 2227) . " " . config('services.nextcloud.ssh_user', 'root') . "@" . config('services.infrastructure.ip_nextcloud', '172.18.4.105') . " 'df -Th / | tail -n 1' 2>&1";
             $output = shell_exec($sshCommand);
 
             if (!empty($output) && !str_contains($output, 'Permission denied') && !str_contains($output, 'Could not open')) {
@@ -155,24 +231,31 @@ class DashboardController extends Controller
 
                 if ($percentIndex !== -1 && $percentIndex >= 3) {
                     $percentUsed = (int) str_replace('%', '', $details[$percentIndex]);
-                    $freeSpace   = $details[$percentIndex - 1]; 
-                    $usedSpace   = $details[$percentIndex - 2]; 
-                    $totalSpace  = $details[$percentIndex - 3]; 
+                    $freeSpace = $details[$percentIndex - 1];
+                    $usedSpace = $details[$percentIndex - 2];
+                    $totalSpace = $details[$percentIndex - 3];
 
                     $totalClean = str_replace(['G', 'M', 'T', 'K', 'g', 'm', 't'], '', $totalSpace);
-                    $usedClean  = str_replace(['G', 'M', 'T', 'K', 'g', 'm', 't'], '', $usedSpace);
-                    $freeClean  = str_replace(['G', 'M', 'T', 'K', 'g', 'm', 't'], '', $freeSpace);
+                    $usedClean = str_replace(['G', 'M', 'T', 'K', 'g', 'm', 't'], '', $usedSpace);
+                    $freeClean = str_replace(['G', 'M', 'T', 'K', 'g', 'm', 't'], '', $freeSpace);
 
                     $ncStorage = [
-                        'total_gb'      => $totalClean,
-                        'used_gb'       => $usedClean,
-                        'free_gb'       => $freeClean,
-                        'percentage'    => $percentUsed,
+                        'total_gb' => $totalClean,
+                        'used_gb' => $usedClean,
+                        'free_gb' => $freeClean,
+                        'percentage' => $percentUsed,
                         'display_total' => $totalSpace . 'B'
                     ];
                 }
             }
         } catch (\Exception $e) {
+            $ncStorage = [
+                'total_gb' => 0,
+                'used_gb' => 0,
+                'free_gb' => 0,
+                'percentage' => 0,
+                'display_total' => 0 . 'B'
+            ];
             Log::error("Gagal SSH df -Th: " . $e->getMessage());
         }
 
@@ -194,10 +277,10 @@ class DashboardController extends Controller
                     $fBytes = $quota['free'] ?? 0;
 
                     $nextcloudQuota = [
-                        'free_gb'       => round($fBytes / 1024 / 1024 / 1024, 2),
-                        'used_gb'       => round($uBytes / 1024 / 1024 / 1024, 2),
-                        'total_gb'      => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) : 0,
-                        'relative'      => round($quota['relative'] ?? 0, 1),
+                        'free_gb' => round($fBytes / 1024 / 1024 / 1024, 2),
+                        'used_gb' => round($uBytes / 1024 / 1024 / 1024, 2),
+                        'total_gb' => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) : 0,
+                        'relative' => round($quota['relative'] ?? 0, 1),
                         'display_total' => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited'
                     ];
                 }
@@ -211,7 +294,9 @@ class DashboardController extends Controller
         if ($ipaResponse['success'] && isset($ipaResponse['data']['result'])) {
             foreach ($ipaResponse['data']['result'] as $userRaw) {
                 $username = $userRaw['uid'][0] ?? 'unknown';
-                if ($username === 'unknown' || $username === 'super-admin') { continue; }
+                if ($username === 'unknown' || $username === 'super-admin') {
+                    continue;
+                }
 
                 try {
                     $userResponse = Http::withBasicAuth($apiUser, $apiToken)
@@ -224,11 +309,11 @@ class DashboardController extends Controller
                         if ($uQuota) {
                             $uTotal = $uQuota['total'] ?? -3;
                             $ncUserStorageList[] = [
-                                'username'   => $username,
-                                'fullname'   => $userRaw['cn'][0] ?? $username,
-                                'used'       => round(($uQuota['used'] ?? 0) / 1024 / 1024 / 1024, 2) . ' GB',
-                                'free'       => $uTotal > 0 ? round(($uQuota['free'] ?? 0) / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited',
-                                'total'      => $uTotal > 0 ? round($uTotal / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited'
+                                'username' => $username,
+                                'fullname' => $userRaw['cn'][0] ?? $username,
+                                'used' => round(($uQuota['used'] ?? 0) / 1024 / 1024 / 1024, 2) . ' GB',
+                                'free' => $uTotal > 0 ? round(($uQuota['free'] ?? 0) / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited',
+                                'total' => $uTotal > 0 ? round($uTotal / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited'
                             ];
                         }
                     }
@@ -236,7 +321,9 @@ class DashboardController extends Controller
                     $ncUserStorageList[] = [
                         'username' => $username,
                         'fullname' => $userRaw['cn'][0] ?? $username,
-                        'used' => '0 GB', 'free' => 'Default', 'total' => 'Default'
+                        'used' => '0 GB',
+                        'free' => 'Default',
+                        'total' => 'Default'
                     ];
                 }
             }
@@ -247,17 +334,19 @@ class DashboardController extends Controller
             foreach ($ipaResponse['data']['result'] as $userRaw) {
                 $username = $userRaw['uid'][0] ?? 'unknown';
                 $localUser = User::where('email', $userRaw['mail'][0] ?? null)->first();
-                if (!$localUser && $username !== 'unknown') { $localUser = User::where('name', $username)->first(); }
+                if (!$localUser && $username !== 'unknown') {
+                    $localUser = User::where('name', $username)->first();
+                }
                 $lastLogin = $localUser && $localUser->last_login ? Carbon::parse($localUser->last_login)->setTimezone('Asia/Jakarta')->format('d M Y - H:i') . ' WIB' : 'Never / Offline';
                 $status = isset($userRaw['nsaccountlock']) && ($userRaw['nsaccountlock'] === true || $userRaw['nsaccountlock'] === 'TRUE') ? 'Locked' : 'Active';
 
                 $freeIpaUsers[] = [
-                    'username'   => $username,
-                    'fullname'   => trim(($userRaw['givenname'][0] ?? '') . ' ' . ($userRaw['sn'][0] ?? '')) ?: ($userRaw['cn'][0] ?? 'No Name'),
+                    'username' => $username,
+                    'fullname' => trim(($userRaw['givenname'][0] ?? '') . ' ' . ($userRaw['sn'][0] ?? '')) ?: ($userRaw['cn'][0] ?? 'No Name'),
                     'first_name' => $userRaw['givenname'][0] ?? '',
-                    'last_name'  => $userRaw['sn'][0] ?? '',
-                    'email'      => $userRaw['mail'][0] ?? '-',
-                    'groups'     => $userRaw['memberof_group'] ?? ['ipausers'],
+                    'last_name' => $userRaw['sn'][0] ?? '',
+                    'email' => $userRaw['mail'][0] ?? '-',
+                    'groups' => $userRaw['memberof_group'] ?? ['ipausers'],
                     'last_login' => $lastLogin,
                     'status' => $status
                 ];
@@ -267,8 +356,20 @@ class DashboardController extends Controller
         $serviceUrls = $this->getServiceUrls();
 
         return view('dashboard', compact(
-            'diskTotalGb', 'diskUsedGb', 'diskUsagePercentage', 'ramTotal', 'ramUsed', 'ramUsagePercentage', 'cpuLoadValue',
-            'freeIpaUsers', 'appsStatus', 'nextcloudQuota', 'recentActivities', 'ncStorage', 'ncUserStorageList', 'serviceUrls'
+            'diskTotalGb',
+            'diskUsedGb',
+            'diskUsagePercentage',
+            'ramTotal',
+            'ramUsed',
+            'ramUsagePercentage',
+            'cpuLoadValue',
+            'freeIpaUsers',
+            'appsStatus',
+            'nextcloudQuota',
+            'recentActivities',
+            'ncStorage',
+            'ncUserStorageList',
+            'serviceUrls'
         ) + ['branding' => BrandingService::get()]);
     }
 
@@ -277,9 +378,9 @@ class DashboardController extends Controller
      */
     public function userDashboard()
     {
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
 
         // Sediakan array default penyelamat agar tidak memicu error blade
         $nextcloudQuota = [
@@ -309,10 +410,10 @@ class DashboardController extends Controller
                     $fBytes = $quota['free'] ?? 0;
 
                     $nextcloudQuota = [
-                        'free_gb'       => round($fBytes / 1024 / 1024 / 1024, 2),
-                        'used_gb'       => round($uBytes / 1024 / 1024 / 1024, 2),
-                        'total_gb'      => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) : 0,
-                        'relative'      => round($quota['relative'] ?? 0, 1),
+                        'free_gb' => round($fBytes / 1024 / 1024 / 1024, 2),
+                        'used_gb' => round($uBytes / 1024 / 1024 / 1024, 2),
+                        'total_gb' => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) : 0,
+                        'relative' => round($quota['relative'] ?? 0, 1),
                         'display_total' => $tBytes > 0 ? round($tBytes / 1024 / 1024 / 1024, 2) . ' GB' : 'Unlimited'
                     ];
                 }
@@ -323,18 +424,18 @@ class DashboardController extends Controller
 
         // Live App Status Ringkas untuk Dashboard User Biasa
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
-            'odoo'      => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
-            'sogo'      => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
+            'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
+            'odoo' => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo' => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
         ];
 
         return view('user_dashboard', [
-            'user'             => Auth::user(),
-            'appsStatus'       => $appsStatus,
-            'nextcloudQuota'   => $nextcloudQuota,
+            'user' => Auth::user(),
+            'appsStatus' => $appsStatus,
+            'nextcloudQuota' => $nextcloudQuota,
             'recentActivities' => [],
-            'branding'         => BrandingService::get(),
-            'serviceUrls'      => $this->getServiceUrls(),
+            'branding' => BrandingService::get(),
+            'serviceUrls' => $this->getServiceUrls(),
         ]);
     }
 
@@ -346,8 +447,8 @@ class DashboardController extends Controller
 
     private function getNcCredentials(): array
     {
-        $user       = Auth::user();
-        $username   = $user->username ?: explode('@', $user->email)[0];
+        $user = Auth::user();
+        $username = $user->username ?: explode('@', $user->email)[0];
         $appPassword = $user->nc_app_password ?? null;
         return compact('username', 'appPassword');
     }
@@ -422,7 +523,7 @@ class DashboardController extends Controller
     private function streamFile(Request $request, string $disposition)
     {
         $fileName = $request->query('file');
-        $path     = $request->query('path', '/');
+        $path = $request->query('path', '/');
 
         if (!$fileName) {
             abort(400, 'Nama file tidak valid.');
@@ -435,7 +536,7 @@ class DashboardController extends Controller
         }
 
         $nextcloud = app(NextcloudService::class);
-        $response  = $nextcloud->streamFile($username, $appPassword, $fileName, $path);
+        $response = $nextcloud->streamFile($username, $appPassword, $fileName, $path);
 
         if (!$response || !$response->successful()) {
             abort(404, 'File tidak ditemukan.');
@@ -449,27 +550,27 @@ class DashboardController extends Controller
 
         $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
         $mimeTypes = [
-            'pdf'  => 'application/pdf',
-            'jpg'  => 'image/jpeg',
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
             'jpeg' => 'image/jpeg',
-            'png'  => 'image/png',
-            'gif'  => 'image/gif',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
             'webp' => 'image/webp',
-            'svg'  => 'image/svg+xml',
-            'mp4'  => 'video/mp4',
+            'svg' => 'image/svg+xml',
+            'mp4' => 'video/mp4',
             'webm' => 'video/webm',
             'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'txt'  => 'text/plain',
-            'md'   => 'text/plain',
+            'txt' => 'text/plain',
+            'md' => 'text/plain',
         ];
         $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
 
         return response($response->body(), 200, [
-            'Content-Type'        => $mimeType,
+            'Content-Type' => $mimeType,
             'Content-Disposition' => $disposition . '; filename="' . $fileName . '"',
-            'Content-Length'      => strlen($response->body()),
+            'Content-Length' => strlen($response->body()),
         ]);
     }
 
@@ -479,11 +580,11 @@ class DashboardController extends Controller
     public function shareDocument(Request $request)
     {
         $request->validate([
-            'file'       => 'required|string',
+            'file' => 'required|string',
             'share_with' => 'required|string',
         ]);
 
-        $fileName  = $request->input('file');
+        $fileName = $request->input('file');
         $shareWith = $request->input('share_with');
 
         extract($this->getNcCredentials());
@@ -492,14 +593,14 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'Nextcloud app password belum tersedia.'], 403);
         }
 
-        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
         try {
             // Cek apakah sudah di-share sebelumnya
             $existingShares = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
-                    'path'   => "/Documents/{$fileName}",
+                    'path' => "/Documents/{$fileName}",
                     'format' => 'json',
                 ]);
 
@@ -516,11 +617,11 @@ class DashboardController extends Controller
             $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->post("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
-                    'path'        => "/Documents/{$fileName}",
-                    'shareType'   => 0, // user share
-                    'shareWith'   => $shareWith,
+                    'path' => "/Documents/{$fileName}",
+                    'shareType' => 0, // user share
+                    'shareWith' => $shareWith,
                     'permissions' => 17, // read + update
-                    'format'      => 'json',
+                    'format' => 'json',
                 ]);
 
             $body = $response->json();
@@ -551,34 +652,36 @@ class DashboardController extends Controller
             return response()->json([]);
         }
 
-        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
         try {
             $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
                     'shared_with_me' => 'true',
-                    'format'         => 'json',
+                    'format' => 'json',
                 ]);
 
-            if (!$response->successful()) return response()->json([]);
+            if (!$response->successful())
+                return response()->json([]);
 
             $shares = $response->json()['ocs']['data'] ?? [];
-            $files  = [];
+            $files = [];
 
             foreach ($shares as $share) {
                 $name = basename($share['path'] ?? '');
-                $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
 
                 // Hanya tampilkan dokumen Office
-                if (!in_array($ext, ['docx', 'xlsx', 'pptx'])) continue;
+                if (!in_array($ext, ['docx', 'xlsx', 'pptx']))
+                    continue;
 
                 $files[] = [
-                    'name'       => $name,
-                    'shared_by'  => $share['displayname_owner'] ?? $share['uid_owner'] ?? '-',
+                    'name' => $name,
+                    'shared_by' => $share['displayname_owner'] ?? $share['uid_owner'] ?? '-',
                     'updated_at' => isset($share['stime']) ? date('d M Y, H:i', $share['stime']) : '-',
-                    'ext'        => $ext,
-                    'share_id'   => $share['id'] ?? null,
+                    'ext' => $ext,
+                    'share_id' => $share['id'] ?? null,
                     'file_owner' => $share['uid_owner'] ?? null,
                 ];
             }
