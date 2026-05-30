@@ -128,8 +128,8 @@ class AuthorizationCenterClient
         try {
             $snapshot = Cache::remember(
                 $cacheKey,
-                now()->addSeconds((int) env('AUTHORIZATION_CENTER_ACCESS_CACHE_TTL', 300)),
-                fn () => $this->accessSummary($accessToken, $appCode)
+                now()->addSeconds((int) env('AUTHORIZATION_CENTER_ACCESS_CACHE_TTL', 150)),
+                fn() => $this->accessSummary($accessToken, $appCode)
             );
         } catch (\Exception $e) {
             Log::warning('Authorization access cache gagal, fallback direct request: ' . $e->getMessage());
