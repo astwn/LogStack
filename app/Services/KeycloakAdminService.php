@@ -14,10 +14,10 @@ class KeycloakAdminService
 
     public function __construct()
     {
-        $this->baseUrl       = rtrim(env('KEYCLOAK_BASE_URL'), '/');
-        $this->realm         = env('KEYCLOAK_REALM');
-        $this->adminUser     = env('KEYCLOAK_ADMIN_USER');
-        $this->adminPassword = env('KEYCLOAK_ADMIN_PASSWORD');
+        $this->baseUrl       = rtrim(config('services.keycloak.base_url'), '/');
+        $this->realm         = config('services.keycloak.realms');
+        $this->adminUser     = config('services.keycloak.admin_user');
+        $this->adminPassword = config('services.keycloak.admin_password');
     }
 
     private function getAdminToken()

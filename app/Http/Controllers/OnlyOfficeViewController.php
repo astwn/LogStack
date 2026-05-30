@@ -17,7 +17,7 @@ class OnlyOfficeViewController extends Controller
         $user        = Auth::user();
         $username    = $user->username ?? explode('@', $user->email)[0];
         $appPassword = $user->nc_app_password ?? null;
-        $baseUrl     = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $baseUrl     = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
         $docsDir     = "{$baseUrl}/remote.php/dav/files/{$username}/Documents";
 
         return compact('username', 'appPassword', 'baseUrl', 'docsDir');
@@ -50,9 +50,9 @@ class OnlyOfficeViewController extends Controller
      */
     private function ensureDocumentsFolderAdmin(string $username): void
     {
-        $ncBaseUrl  = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
-        $adminUser  = env('NEXTCLOUD_API_USER');
-        $adminToken = env('NEXTCLOUD_API_TOKEN');
+       $ncBaseUrl  = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
+       $adminUser  = config('services.nextcloud.api_user');
+       $adminToken = config('services.nextcloud.api_token');
         $docsDir    = "{$ncBaseUrl}/remote.php/dav/files/{$username}/Documents";
 
         try {
@@ -114,7 +114,7 @@ class OnlyOfficeViewController extends Controller
             }
         }
 
-        $ncBaseUrl   = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl   = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
         $ownerDocsDir = "{$ncBaseUrl}/remote.php/dav/files/{$fileOwner}/Documents";
         $webdavUrl    = "{$ownerDocsDir}/{$fileName}";
 
@@ -179,9 +179,9 @@ class OnlyOfficeViewController extends Controller
         ];
 
         return view('onlyoffice.editor', [
-            'onlyofficeUrl' => env('ONLYOFFICE_URL', 'https://office.logstack.web.id'),
+            'onlyofficeUrl' => config('services.onlyoffice.url', 'https://office.logstack.web.id'),
             'config'        => $config,
-            'token'         => JWT::encode($config, env('ONLYOFFICE_SECRET'), 'HS256'),
+            'token'         => JWT::encode($config, config('services.onlyoffice.secret'), 'HS256'),
         ]);
     }
 
@@ -198,7 +198,7 @@ class OnlyOfficeViewController extends Controller
         ];
         $contentType = $mimeTypes[$ext] ?? 'application/octet-stream';
 
-        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
         // Pastikan folder Documents ada
         $this->ensureDocumentsFolderAdmin($targetUser);

@@ -14,10 +14,10 @@ class NextcloudService
 
     public function __construct()
     {
-        $this->baseUrl    = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
-        $this->adminUser  = env('NEXTCLOUD_API_USER', 'super-admin');
-        $this->adminToken = env('NEXTCLOUD_API_TOKEN');
-        $this->ncHost     = env('NEXTCLOUD_HOST', '172.18.4.105');
+        $this->baseUrl    = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
+        $this->adminUser  = config('services.nextcloud.api_user', 'super-admin');
+        $this->adminToken = config('services.nextcloud.api_token', '');
+        $this->ncHost     = config('services.nextcloud.host', '172.18.4.105');
     }
 
     /**
@@ -82,8 +82,8 @@ class NextcloudService
     public function generateAppPassword(string $username): ?string
     {
         try {
-            $sshKey  = env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa');
-            $sshPort = env('NEXTCLOUD_SSH_PORT', '2227');
+            $sshKey  = config('services.nextcloud.ssh_key', '/var/www/.ssh/id_rsa');
+            $sshPort = config('services.nextcloud.ssh_port', '2227');
             $occPath = '/var/www/nextcloud/occ';
 
             $cmd = "ssh -i {$sshKey} -o StrictHostKeyChecking=no -p {$sshPort} root@{$this->ncHost} "
@@ -116,8 +116,8 @@ class NextcloudService
     public function revokeAppPassword(string $username): void
     {
         try {
-            $sshKey  = env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa');
-            $sshPort = env('NEXTCLOUD_SSH_PORT', '2227');
+            $sshKey  = config('services.nextcloud.ssh_key', '/var/www/.ssh/id_rsa');
+            $sshPort = config('services.nextcloud.ssh_port', '2227');
             $occPath = '/var/www/nextcloud/occ';
 
             // List tokens dulu
@@ -204,9 +204,19 @@ class NextcloudService
                    . rawurlencode($file->getClientOriginalName());
 
         try {
+            // Pakai stream untuk file besar — tidak load ke memory sekaligus
+            $stream = fopen($file->getRealPath(), 'r');
+
             $response = Http::withBasicAuth($username, $appPassword)
-                ->withBody(file_get_contents($file->getRealPath()), $file->getClientMimeType())
+                ->withHeaders([
+                    'Content-Type'   => $file->getClientMimeType(),
+                    'Content-Length' => $file->getSize(),
+                ])
+                ->withBody($stream, $file->getClientMimeType())
+                ->timeout(600)
                 ->put($webdavUrl);
+
+            if (is_resource($stream)) fclose($stream);
 
             return $response->successful();
 

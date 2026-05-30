@@ -41,13 +41,13 @@ class DashboardController extends Controller
     private function getServiceUrls(): array
     {
         return [
-            'nextcloud' => env('SERVICE_URL_NEXTCLOUD', 'https://drive.logstack.web.id'),
-            'odoo' => env('SERVICE_URL_ODOO', 'https://erp.logstack.web.id'),
-            'sogo' => env('SERVICE_URL_SOGO', 'https://mbox.logstack.web.id'),
-            'freeipa' => env('SERVICE_URL_FREEIPA', 'https://ipa.logstack.web.id'),
-            'grafana' => env('SERVICE_URL_GRAFANA', 'https://monit.logstack.web.id'),
-            'keycloak' => env('SERVICE_URL_KEYCLOAK', 'https://sso.logstack.web.id'),
-            'mail_domain' => env('SERVICE_MAIL_DOMAIN', 'logstack.web.id'),
+            'nextcloud'   => config('services.infrastructure.url_nextcloud', 'https://drive.logstack.web.id'),
+            'odoo'        => config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id'),
+            'sogo'        => config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id'),
+            'freeipa'     => config('services.infrastructure.url_freeipa', 'https://ipa.logstack.web.id'),
+            'grafana'     => config('services.infrastructure.url_grafana', 'https://monit.logstack.web.id'),
+            'keycloak'    => config('services.infrastructure.url_keycloak', 'https://sso.logstack.web.id'),
+            'mail_domain' => config('services.infrastructure.mail_domain', 'logstack.web.id'),
         ];
     }
 
@@ -137,9 +137,9 @@ class DashboardController extends Controller
             'quota' => 'required|string'
         ]);
 
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
 
         try {
             $response = Http::withBasicAuth($apiUser, $apiToken)
@@ -183,25 +183,17 @@ class DashboardController extends Controller
 
         // 2. LIVE HEALTH CHECK
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
-            'odoo' => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
-            'sogo' => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
-            'freeipa' => $this->checkAppStatus(env('SERVICE_IP_FREEIPA', '172.18.4.103'), env('SERVICE_PORT_FREEIPA', 443)),
-            'grafana' => $this->checkAppStatus(env('SERVICE_IP_GRAFANA', '172.18.4.108'), env('SERVICE_PORT_GRAFANA', 3000)),
-            'nginx' => $this->checkAppStatus(env('SERVICE_IP_NGINX', '172.18.4.101'), env('SERVICE_PORT_NGINX', 80)),
+            'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
+            'odoo'      => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo'      => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
+            'freeipa'   => $this->checkAppStatus(config('services.infrastructure.ip_freeipa', '172.18.4.103'), config('services.infrastructure.port_freeipa', 443)),
+            'grafana'   => $this->checkAppStatus(config('services.infrastructure.ip_grafana', '172.18.4.108'), config('services.infrastructure.port_grafana', 3000)),
+            'nginx'     => $this->checkAppStatus(config('services.infrastructure.ip_nginx', '172.18.4.101'), config('services.infrastructure.port_nginx', 80)),
         ];
 
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
-
-        $ncStorage = [
-            'total_gb' => '0',
-            'used_gb' => '0',
-            'free_gb' => '0',
-            'percentage' => 0,
-            'display_total' => '0 GB'
-        ];
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
         $nextcloudQuota = [
             'free_gb' => 0,
             'used_gb' => 0,
@@ -215,7 +207,7 @@ class DashboardController extends Controller
 
         // 3. AMBIL DATA STORAGE REALTIME OS VIA SSH PORT 2227
         try {
-            $sshCommand = "ssh -i " . env('NEXTCLOUD_SSH_KEY', '/var/www/.ssh/id_rsa') . " -o StrictHostKeyChecking=no -p " . env('NEXTCLOUD_SSH_PORT', 2227) . " " . env('NEXTCLOUD_SSH_USER', 'root') . "@" . env('SERVICE_IP_NEXTCLOUD', '172.18.4.105') . " 'df -Th / | tail -n 1' 2>&1";
+            $sshCommand = "ssh -i " . config('services.nextcloud.ssh_key', '/var/www/.ssh/id_rsa') . " -o StrictHostKeyChecking=no -p " . config('services.nextcloud.ssh_port', 2227) . " " . config('services.nextcloud.ssh_user', 'root') . "@" . config('services.infrastructure.ip_nextcloud', '172.18.4.105') . " 'df -Th / | tail -n 1' 2>&1";
             $output = shell_exec($sshCommand);
 
             if (!empty($output) && !str_contains($output, 'Permission denied') && !str_contains($output, 'Could not open')) {
@@ -372,9 +364,9 @@ class DashboardController extends Controller
      */
     public function userDashboard()
     {
-        $baseUrl = rtrim(env('NEXTCLOUD_BASE_URL'), '/');
-        $apiUser = env('NEXTCLOUD_API_USER');
-        $apiToken = env('NEXTCLOUD_API_TOKEN');
+        $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
+        $apiUser = config('services.nextcloud.api_user');
+        $apiToken = config('services.nextcloud.api_token');
 
         // Sediakan array default penyelamat agar tidak memicu error blade
         $nextcloudQuota = [
@@ -418,9 +410,9 @@ class DashboardController extends Controller
 
         // Live App Status Ringkas untuk Dashboard User Biasa
         $appsStatus = [
-            'nextcloud' => $this->checkAppStatus(env('SERVICE_IP_NEXTCLOUD', '172.18.4.105'), env('SERVICE_PORT_NEXTCLOUD', 80)),
-            'odoo' => $this->checkAppStatus(env('SERVICE_IP_ODOO', '172.18.4.106'), env('SERVICE_PORT_ODOO', 8069)),
-            'sogo' => $this->checkAppStatus(env('SERVICE_IP_SOGO', '172.18.4.107'), env('SERVICE_PORT_SOGO', 80)),
+            'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
+            'odoo'      => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo'      => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
         ];
 
         return view('user_dashboard', [
@@ -587,7 +579,7 @@ class DashboardController extends Controller
             return response()->json(['success' => false, 'message' => 'Nextcloud app password belum tersedia.'], 403);
         }
 
-        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
         try {
             // Cek apakah sudah di-share sebelumnya
@@ -646,7 +638,7 @@ class DashboardController extends Controller
             return response()->json([]);
         }
 
-        $ncBaseUrl = rtrim(env('NEXTCLOUD_BASE_URL', 'http://172.18.4.105'), '/');
+        $ncBaseUrl = rtrim(config('services.nextcloud.base_url', 'http://172.18.4.105'), '/');
 
         try {
             $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
