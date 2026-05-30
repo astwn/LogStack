@@ -41,12 +41,12 @@ class DashboardController extends Controller
     private function getServiceUrls(): array
     {
         return [
-            'nextcloud'   => config('services.infrastructure.url_nextcloud', 'https://drive.logstack.web.id'),
-            'odoo'        => config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id'),
-            'sogo'        => config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id'),
-            'freeipa'     => config('services.infrastructure.url_freeipa', 'https://ipa.logstack.web.id'),
-            'grafana'     => config('services.infrastructure.url_grafana', 'https://monit.logstack.web.id'),
-            'keycloak'    => config('services.infrastructure.url_keycloak', 'https://sso.logstack.web.id'),
+            'nextcloud' => config('services.infrastructure.url_nextcloud', 'https://drive.logstack.web.id'),
+            'odoo' => config('services.infrastructure.url_odoo', 'https://erp.logstack.web.id'),
+            'sogo' => config('services.infrastructure.url_sogo', 'https://mbox.logstack.web.id'),
+            'freeipa' => config('services.infrastructure.url_freeipa', 'https://ipa.logstack.web.id'),
+            'grafana' => config('services.infrastructure.url_grafana', 'https://monit.logstack.web.id'),
+            'keycloak' => config('services.infrastructure.url_keycloak', 'https://sso.logstack.web.id'),
             'mail_domain' => config('services.infrastructure.mail_domain', 'logstack.web.id'),
         ];
     }
@@ -184,11 +184,11 @@ class DashboardController extends Controller
         // 2. LIVE HEALTH CHECK
         $appsStatus = [
             'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
-            'odoo'      => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
-            'sogo'      => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
-            'freeipa'   => $this->checkAppStatus(config('services.infrastructure.ip_freeipa', '172.18.4.103'), config('services.infrastructure.port_freeipa', 443)),
-            'grafana'   => $this->checkAppStatus(config('services.infrastructure.ip_grafana', '172.18.4.108'), config('services.infrastructure.port_grafana', 3000)),
-            'nginx'     => $this->checkAppStatus(config('services.infrastructure.ip_nginx', '172.18.4.101'), config('services.infrastructure.port_nginx', 80)),
+            'odoo' => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo' => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
+            'freeipa' => $this->checkAppStatus(config('services.infrastructure.ip_freeipa', '172.18.4.103'), config('services.infrastructure.port_freeipa', 443)),
+            'grafana' => $this->checkAppStatus(config('services.infrastructure.ip_grafana', '172.18.4.108'), config('services.infrastructure.port_grafana', 3000)),
+            'nginx' => $this->checkAppStatus(config('services.infrastructure.ip_nginx', '172.18.4.101'), config('services.infrastructure.port_nginx', 80)),
         ];
 
         $baseUrl = rtrim(config('services.nextcloud.base_url'), '/');
@@ -204,6 +204,13 @@ class DashboardController extends Controller
 
         $recentActivities = [];
         $ncUserStorageList = [];
+        $ncStorage = [
+            'total_gb' => 0,
+            'used_gb' => 0,
+            'free_gb' => 0,
+            'percentage' => 0,
+            'display_total' => '0 GB',
+        ];
 
         // 3. AMBIL DATA STORAGE REALTIME OS VIA SSH PORT 2227
         try {
@@ -242,6 +249,13 @@ class DashboardController extends Controller
                 }
             }
         } catch (\Exception $e) {
+            $ncStorage = [
+                'total_gb' => 0,
+                'used_gb' => 0,
+                'free_gb' => 0,
+                'percentage' => 0,
+                'display_total' => 0 . 'B'
+            ];
             Log::error("Gagal SSH df -Th: " . $e->getMessage());
         }
 
@@ -411,8 +425,8 @@ class DashboardController extends Controller
         // Live App Status Ringkas untuk Dashboard User Biasa
         $appsStatus = [
             'nextcloud' => $this->checkAppStatus(config('services.infrastructure.ip_nextcloud', '172.18.4.105'), config('services.infrastructure.port_nextcloud', 80)),
-            'odoo'      => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
-            'sogo'      => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
+            'odoo' => $this->checkAppStatus(config('services.infrastructure.ip_odoo', '172.18.4.106'), config('services.infrastructure.port_odoo', 8069)),
+            'sogo' => $this->checkAppStatus(config('services.infrastructure.ip_sogo', '172.18.4.107'), config('services.infrastructure.port_sogo', 80)),
         ];
 
         return view('user_dashboard', [
@@ -566,11 +580,11 @@ class DashboardController extends Controller
     public function shareDocument(Request $request)
     {
         $request->validate([
-            'file'       => 'required|string',
+            'file' => 'required|string',
             'share_with' => 'required|string',
         ]);
 
-        $fileName  = $request->input('file');
+        $fileName = $request->input('file');
         $shareWith = $request->input('share_with');
 
         extract($this->getNcCredentials());
@@ -586,7 +600,7 @@ class DashboardController extends Controller
             $existingShares = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
-                    'path'   => "/Documents/{$fileName}",
+                    'path' => "/Documents/{$fileName}",
                     'format' => 'json',
                 ]);
 
@@ -603,11 +617,11 @@ class DashboardController extends Controller
             $response = \Illuminate\Support\Facades\Http::withBasicAuth($username, $appPassword)
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->post("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
-                    'path'        => "/Documents/{$fileName}",
-                    'shareType'   => 0, // user share
-                    'shareWith'   => $shareWith,
+                    'path' => "/Documents/{$fileName}",
+                    'shareType' => 0, // user share
+                    'shareWith' => $shareWith,
                     'permissions' => 17, // read + update
-                    'format'      => 'json',
+                    'format' => 'json',
                 ]);
 
             $body = $response->json();
@@ -645,27 +659,29 @@ class DashboardController extends Controller
                 ->withHeaders(['OCS-APIRequest' => 'true'])
                 ->get("{$ncBaseUrl}/ocs/v2.php/apps/files_sharing/api/v1/shares", [
                     'shared_with_me' => 'true',
-                    'format'         => 'json',
+                    'format' => 'json',
                 ]);
 
-            if (!$response->successful()) return response()->json([]);
+            if (!$response->successful())
+                return response()->json([]);
 
             $shares = $response->json()['ocs']['data'] ?? [];
-            $files  = [];
+            $files = [];
 
             foreach ($shares as $share) {
                 $name = basename($share['path'] ?? '');
-                $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
 
                 // Hanya tampilkan dokumen Office
-                if (!in_array($ext, ['docx', 'xlsx', 'pptx'])) continue;
+                if (!in_array($ext, ['docx', 'xlsx', 'pptx']))
+                    continue;
 
                 $files[] = [
-                    'name'       => $name,
-                    'shared_by'  => $share['displayname_owner'] ?? $share['uid_owner'] ?? '-',
+                    'name' => $name,
+                    'shared_by' => $share['displayname_owner'] ?? $share['uid_owner'] ?? '-',
                     'updated_at' => isset($share['stime']) ? date('d M Y, H:i', $share['stime']) : '-',
-                    'ext'        => $ext,
-                    'share_id'   => $share['id'] ?? null,
+                    'ext' => $ext,
+                    'share_id' => $share['id'] ?? null,
                     'file_owner' => $share['uid_owner'] ?? null,
                 ];
             }
